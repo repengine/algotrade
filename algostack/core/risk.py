@@ -91,7 +91,7 @@ class EnhancedRiskManager:
         # Maximum Drawdown
         cumulative = (1 + daily_returns).cumprod()
         running_max = cumulative.expanding().max()
-        drawdown = (cumulative - running_max) / running_max
+        drawdown = ((cumulative - running_max) / running_max).fillna(0)
         max_drawdown = drawdown.min()
         current_drawdown = drawdown.iloc[-1]
         
@@ -192,7 +192,7 @@ class EnhancedRiskManager:
         
         from scipy.optimize import minimize
         
-        def objective(weights):
+        def objective(weights: np.ndarray) -> float:
             portfolio_return = np.dot(weights, expected_returns)
             portfolio_variance = np.dot(weights, np.dot(covariance_matrix, weights))
             return -(portfolio_return - risk_aversion * portfolio_variance)

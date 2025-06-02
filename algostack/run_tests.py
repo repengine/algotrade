@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 
 
-def run_tests():
+def run_tests() -> int:
     """Run all tests with coverage."""
     print("🧪 Running AlgoStack Test Suite")
     print("=" * 60)
@@ -128,7 +128,7 @@ def run_tests():
         return 1
 
 
-def setup_test_environment():
+def setup_test_environment() -> None:
     """Set up test environment."""
     print("🔧 Setting up test environment...")
     

@@ -113,7 +113,7 @@ class PortfolioEngine:
         # Update peak and drawdown
         if total_value > self.peak_equity:
             self.peak_equity = total_value
-        self.current_drawdown = (self.peak_equity - total_value) / self.peak_equity
+        self.current_drawdown = (self.peak_equity - total_value) / self.peak_equity if self.peak_equity > 0 else 0
         
         # Position counts
         long_positions = sum(1 for pos in self.positions.values() if pos.direction == 'LONG')

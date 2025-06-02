@@ -3,18 +3,20 @@
 import sys
 from pathlib import Path
 from datetime import datetime, timedelta
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 import pytest
 import pandas as pd
 import numpy as np
+
+from strategies.base import Signal
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
 
 @pytest.fixture
-def sample_ohlcv_data():
+def sample_ohlcv_data() -> pd.DataFrame:
     """Generate sample OHLCV data for testing."""
     dates = pd.date_range(start='2023-01-01', end='2023-12-31', freq='D')
     n = len(dates)
@@ -40,7 +42,7 @@ def sample_ohlcv_data():
 
 
 @pytest.fixture
-def portfolio_config():
+def portfolio_config() -> Dict[str, Any]:
     """Standard portfolio configuration for testing."""
     return {
         'initial_capital': 10000.0,
@@ -54,7 +56,7 @@ def portfolio_config():
 
 
 @pytest.fixture
-def strategy_config():
+def strategy_config() -> Dict[str, Any]:
     """Standard strategy configuration for testing."""
     return {
         'mean_reversion': {
@@ -84,7 +86,7 @@ def strategy_config():
 
 
 @pytest.fixture
-def mock_market_data():
+def mock_market_data() -> Dict[str, pd.DataFrame]:
     """Mock market data for multiple symbols."""
     symbols = ['SPY', 'QQQ', 'IWM', 'DIA']
     market_data = {}
@@ -119,7 +121,7 @@ def mock_market_data():
 
 
 @pytest.fixture
-def mock_signals():
+def mock_signals() -> List[Signal]:
     """Generate mock trading signals."""
     from strategies.base import Signal
     
@@ -148,7 +150,7 @@ def mock_signals():
 
 
 @pytest.fixture
-def risk_config():
+def risk_config() -> Dict[str, Any]:
     """Risk management configuration."""
     return {
         'max_var_95': 0.02,
@@ -163,7 +165,7 @@ def risk_config():
 
 
 # Pytest plugins and settings
-def pytest_configure(config):
+def pytest_configure(config) -> None:
     """Configure pytest with custom markers."""
     config.addinivalue_line(
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
@@ -178,7 +180,7 @@ def pytest_configure(config):
 
 # Test environment setup
 @pytest.fixture(scope="session", autouse=True)
-def setup_test_environment():
+def setup_test_environment() -> None:
     """Set up test environment."""
     # Create necessary directories
     from pathlib import Path
@@ -199,7 +201,7 @@ def setup_test_environment():
 
 # Mock external dependencies
 @pytest.fixture
-def mock_yfinance(mocker):
+def mock_yfinance(mocker) -> None:
     """Mock yfinance for testing."""
     mock = mocker.patch('yfinance.Ticker')
     mock.return_value.history.return_value = pd.DataFrame({
@@ -213,7 +215,7 @@ def mock_yfinance(mocker):
 
 
 @pytest.fixture
-def mock_broker_connection(mocker):
+def mock_broker_connection(mocker) -> Any:
     """Mock broker connection for testing."""
     mock = mocker.MagicMock()
     mock.is_connected.return_value = True

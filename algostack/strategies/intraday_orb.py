@@ -336,7 +336,7 @@ class IntradayORB(BaseStrategy):
         
         return position_size, stop_loss
     
-    def reset_daily_counters(self):
+    def reset_daily_counters(self) -> None:
         """Reset daily trade counters. Call this at start of each day."""
         self.daily_trades.clear()
         self.opening_ranges.clear()

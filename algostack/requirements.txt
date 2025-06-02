@@ -18,6 +18,7 @@ backtrader>=1.9.78.123
 # Execution
 ib_insync>=0.9.86
 robin_stocks>=3.0.8
+aiohttp>=3.9.0
 
 # Infrastructure
 pydantic>=2.0.0

@@ -49,7 +49,7 @@ class OvernightDrift(BaseStrategy):
         self.positions.clear()
         self.event_calendar.clear()
         
-    def load_event_calendar(self, events: Dict[str, List[datetime]]):
+    def load_event_calendar(self, events: Dict[str, List[datetime]]) -> None:
         """Load economic events calendar.
         
         Args:

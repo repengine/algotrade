@@ -221,8 +221,8 @@ class MeanReversionEquity(BaseStrategy):
         
         # Profit factor
         total_wins = wins['pnl'].sum() if len(wins) > 0 else 0
-        total_losses = abs(losses['pnl'].sum()) if len(losses) > 0 else 1
-        profit_factor = total_wins / total_losses
+        total_losses = abs(losses['pnl'].sum()) if len(losses) > 0 else 0
+        profit_factor = total_wins / total_losses if total_losses > 0 else (float("inf") if total_wins > 0 else 0.0)
         
         return {
             'win_rate': win_rate,

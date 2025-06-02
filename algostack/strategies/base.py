@@ -116,8 +116,8 @@ class BaseStrategy(ABC):
     @property
     def profit_factor(self) -> float:
         """Calculate profit factor (gross wins / gross losses)."""
-        wins = sum(1 for _ in range(self._performance_stats["wins"]))
-        losses = sum(1 for _ in range(self._performance_stats["losses"]))
+        wins = self._performance_stats["wins"]
+        losses = self._performance_stats["losses"]
         if losses == 0:
             return float("inf") if wins > 0 else 0.0
         return wins / losses

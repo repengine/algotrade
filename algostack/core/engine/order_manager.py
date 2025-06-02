@@ -317,7 +317,7 @@ class OrderManager:
             
         total_value = (order.average_fill_price * (order.filled_quantity - new_fill.quantity) + 
                       new_fill.price * new_fill.quantity)
-        return total_value / order.filled_quantity
+        return total_value / order.filled_quantity if order.filled_quantity > 0 else new_fill.price
         
     async def _trigger_callbacks(self, order: Order, event: str) -> None:
         """Trigger callbacks for order events"""

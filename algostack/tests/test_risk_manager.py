@@ -5,6 +5,7 @@ import pytest
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
+from typing import Dict, Any
 from unittest.mock import Mock, patch
 
 from core.risk import EnhancedRiskManager, RiskMetrics
@@ -18,7 +19,7 @@ from utils.constants import (
 
 
 @pytest.fixture
-def risk_config():
+def risk_config() -> Dict[str, Any]:
     """Risk manager configuration fixture."""
     return {
         'max_var_95': 0.02,
@@ -33,13 +34,13 @@ def risk_config():
 
 
 @pytest.fixture
-def risk_manager(risk_config):
+def risk_manager(risk_config: Dict[str, Any]) -> EnhancedRiskManager:
     """Create a risk manager instance."""
     return EnhancedRiskManager(risk_config)
 
 
 @pytest.fixture
-def sample_returns():
+def sample_returns() -> pd.Series:
     """Generate sample return data."""
     np.random.seed(42)
     dates = pd.date_range(start='2023-01-01', periods=252, freq='D')
@@ -53,7 +54,7 @@ def sample_returns():
 
 
 @pytest.fixture
-def sample_positions():
+def sample_positions() -> Dict[str, Any]:
     """Sample portfolio positions."""
     return {
         'SPY': {'value': 50000, 'quantity': 100, 'sector': 'broad'},
