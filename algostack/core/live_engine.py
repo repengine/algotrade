@@ -23,6 +23,7 @@ from algostack.adapters.ibkr_executor import IBKRExecutor
 from algostack.core.data_handler import DataHandler
 from algostack.core.engine.enhanced_order_manager import EnhancedOrderManager, OrderEventType
 from algostack.core.executor import Order, OrderSide, OrderType, TimeInForce
+from algostack.core.metrics import MetricsCollector
 from algostack.core.portfolio import PortfolioEngine
 from algostack.core.risk import RiskManager
 from algostack.strategies.base import BaseStrategy, Signal
@@ -63,11 +64,11 @@ class LiveTradingEngine:
         
         # Initialize components
         self.data_handler = DataHandler(config.get("data_config", {}))
-        self.portfolio_engine = PortfolioEngine(
-            initial_capital=config.get("portfolio_config", {}).get("initial_capital", 100000)
-        )
+        initial_capital = config.get("portfolio_config", {}).get("initial_capital", 100000)
+        self.portfolio_engine = PortfolioEngine(initial_capital=initial_capital)
         self.risk_manager = RiskManager(config.get("risk_config", {}))
         self.order_manager = EnhancedOrderManager(risk_manager=self.risk_manager)
+        self.metrics_collector = MetricsCollector(initial_capital)
         
         # Initialize strategies
         self.strategies: Dict[str, BaseStrategy] = {}
@@ -552,6 +553,28 @@ class LiveTradingEngine:
         if event_type == OrderEventType.FILLED:
             self.stats["total_fills"] += 1
             logger.info(f"Order filled: {order.order_id} - {order.filled_quantity} @ {order.average_fill_price}")
+            
+            # Record trade in metrics collector
+            if order.side == OrderSide.BUY:
+                self.metrics_collector.record_trade_entry(
+                    symbol=order.symbol,
+                    price=order.average_fill_price,
+                    quantity=order.filled_quantity,
+                    side="long",
+                    timestamp=order.filled_at or datetime.now(),
+                    strategy_id=order.metadata.get("strategy_id")
+                )
+            else:  # SELL
+                trade = self.metrics_collector.record_trade_exit(
+                    symbol=order.symbol,
+                    price=order.average_fill_price,
+                    quantity=order.filled_quantity,
+                    timestamp=order.filled_at or datetime.now(),
+                    commission=order.commission
+                )
+                if trade:
+                    logger.info(f"Trade completed: {trade.symbol} P&L: ${trade.pnl:.2f} ({trade.pnl_percentage:+.2f}%)")
+                    
         elif event_type == OrderEventType.REJECTED:
             logger.warning(f"Order rejected: {order.order_id} - {data}")
         elif event_type == OrderEventType.ERROR:
