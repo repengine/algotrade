@@ -18,29 +18,53 @@ logger = logging.getLogger(__name__)
 class DataHandler:
     """Unified data handler for multiple sources with parquet caching."""
     
-    def __init__(self, providers: List[str], cache_dir: str = "data/cache", api_keys: Optional[Dict[str, str]] = None) -> None:
+    def __init__(self, providers: List[str], cache_dir: str = "data/cache", api_keys: Optional[Dict[str, str]] = None, premium_av: bool = False) -> None:
         self.providers = providers
         self.cache_dir = Path(cache_dir)
         self.adapters = {}
         self._cache = {}
         self.api_keys = api_keys or {}
+        self.premium_av = premium_av
         
         # Create cache directory
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         
-    async def initialize(self) -> None:
-        """Initialize data providers."""
+        # Initialize adapters immediately (not async)
+        self._init_adapters()
+        
+    def _init_adapters(self) -> None:
+        """Initialize data adapters (synchronous)."""
         for provider in self.providers:
             if provider == "yfinance":
-                from ..adapters.yf_fetcher import YFinanceFetcher
+                from adapters.yf_fetcher import YFinanceFetcher
                 self.adapters[provider] = YFinanceFetcher()
-            elif provider == "alpha_vantage":
-                from ..adapters.av_fetcher import AlphaVantageFetcher
-                api_key = self.api_keys.get("alpha_vantage")
+            elif provider == "alpha_vantage" or provider == "alphavantage":
+                from adapters.av_fetcher import AlphaVantageFetcher
+                api_key = self.api_keys.get("alpha_vantage") or self.api_keys.get("alphavantage")
+                if not api_key:
+                    # Try to load from environment or config
+                    api_key = os.getenv('ALPHA_VANTAGE_API_KEY')
+                    if not api_key:
+                        # Try to load from secrets.yaml
+                        try:
+                            import yaml
+                            config_path = Path(__file__).parent.parent / "config" / "secrets.yaml"
+                            if config_path.exists():
+                                with open(config_path, 'r') as f:
+                                    secrets = yaml.safe_load(f)
+                                    api_key = secrets.get('data_providers', {}).get('alphavantage', {}).get('api_key')
+                        except:
+                            pass
+                            
                 if not api_key:
                     logger.warning("No Alpha Vantage API key provided")
                     continue
-                self.adapters[provider] = AlphaVantageFetcher(api_key)
+                    
+                self.adapters[provider] = AlphaVantageFetcher(api_key, premium=self.premium_av)
+                
+    async def initialize(self) -> None:
+        """Async initialization if needed."""
+        pass  # Adapters are already initialized in __init__
                 
     def get_historical(
         self,
@@ -55,27 +79,44 @@ class DataHandler:
         cache_path = self.cache_dir / f"{cache_key}.parquet"
         
         # Check cache
-        if cache_path.exists():
-            logger.debug(f"Loading {symbol} from cache")
-            df = pd.read_parquet(cache_path)
+        pickle_path = Path(str(cache_path).replace('.parquet', '.pkl'))
+        if cache_path.exists() or pickle_path.exists():
+            if cache_path.exists():
+                logger.debug(f"Loading {symbol} from parquet cache")
+                try:
+                    df = pd.read_parquet(cache_path)
+                except (ImportError, AttributeError):
+                    logger.debug(f"Parquet failed, trying pickle cache")
+                    df = pd.read_pickle(pickle_path) if pickle_path.exists() else None
+            else:
+                logger.debug(f"Loading {symbol} from pickle cache")
+                df = pd.read_pickle(pickle_path)
             
-            # Validate cache freshness (re-fetch if data is incomplete)
-            if end.date() > df.index[-1].date():
-                logger.info(f"Cache for {symbol} is stale, fetching recent data")
-                # Fetch only the missing data
-                new_start = df.index[-1] + timedelta(days=1)
-                new_df = self._fetch_from_provider(symbol, new_start, end, interval, provider)
-                if not new_df.empty:
-                    df = pd.concat([df, new_df])
-                    df.to_parquet(cache_path)
-            return df
+            if df is not None:
+                # Validate cache freshness (re-fetch if data is incomplete)
+                if end.date() > df.index[-1].date():
+                    logger.info(f"Cache for {symbol} is stale, fetching recent data")
+                    # Fetch only the missing data
+                    new_start = df.index[-1] + timedelta(days=1)
+                    new_df = self._fetch_from_provider(symbol, new_start, end, interval, provider)
+                    if not new_df.empty:
+                        df = pd.concat([df, new_df])
+                        try:
+                            df.to_parquet(cache_path)
+                        except (ImportError, AttributeError):
+                            df.to_pickle(pickle_path)
+                return df
             
         # Fetch from provider
         df = self._fetch_from_provider(symbol, start, end, interval, provider)
         
         # Save to cache
         if not df.empty:
-            df.to_parquet(cache_path)
+            try:
+                df.to_parquet(cache_path)
+            except (ImportError, AttributeError):
+                # Fallback to pickle if parquet is not available
+                df.to_pickle(str(cache_path).replace('.parquet', '.pkl'))
         
         return df
     
@@ -144,18 +185,21 @@ class DataHandler:
     def clear_cache(self, symbol: Optional[str] = None) -> None:
         """Clear cache for specific symbol or all symbols."""
         if symbol:
-            pattern = f"{symbol}_*.parquet"
-            for cache_file in self.cache_dir.glob(pattern):
-                cache_file.unlink()
-                logger.info(f"Cleared cache for {symbol}")
+            for pattern in [f"{symbol}_*.parquet", f"{symbol}_*.pkl"]:
+                for cache_file in self.cache_dir.glob(pattern):
+                    cache_file.unlink()
+                    logger.info(f"Cleared cache for {symbol}")
         else:
-            for cache_file in self.cache_dir.glob("*.parquet"):
-                cache_file.unlink()
+            for pattern in ["*.parquet", "*.pkl"]:
+                for cache_file in self.cache_dir.glob(pattern):
+                    cache_file.unlink()
             logger.info("Cleared all cache")
     
     def get_cache_size(self) -> int:
         """Get total cache size in bytes."""
         total_size = 0
         for cache_file in self.cache_dir.glob("*.parquet"):
+            total_size += cache_file.stat().st_size
+        for cache_file in self.cache_dir.glob("*.pkl"):
             total_size += cache_file.stat().st_size
         return total_size

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 import pandas as pd
 import numpy as np
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class Signal(BaseModel):
@@ -14,16 +14,17 @@ class Signal(BaseModel):
     
     timestamp: datetime
     symbol: str
-    direction: str = Field(..., regex="^(LONG|SHORT|FLAT)$")
+    direction: str = Field(..., pattern="^(LONG|SHORT|FLAT)$")
     strength: float = Field(..., ge=-1.0, le=1.0)
     strategy_id: str
     price: float
     atr: Optional[float] = None
     metadata: Dict[str, Any] = {}
     
-    @validator("strength")
-    def validate_strength(cls, v: float, values: Dict[str, Any]) -> float:
-        direction = values.get("direction")
+    @field_validator("strength")
+    @classmethod
+    def validate_strength(cls, v: float, info) -> float:
+        direction = info.data.get("direction") if info.data else None
         if direction == "FLAT" and v != 0:
             raise ValueError("FLAT signals must have strength=0")
         if direction == "LONG" and v < 0:

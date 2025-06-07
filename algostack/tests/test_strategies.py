@@ -18,11 +18,13 @@ class TestMeanReversionEquity:
         config = {
             'symbols': ['SPY'],
             'rsi_period': 2,
-            'rsi_oversold': 10,
-            'rsi_overbought': 90,
+            'rsi_oversold': 10.0,
+            'rsi_overbought': 90.0,
             'atr_period': 14,
             'atr_band_mult': 2.5,
-            'stop_loss_atr': 3.0
+            'stop_loss_atr': 3.0,
+            'zscore_threshold': 2.0,
+            'exit_zscore': 0.5
         }
         return MeanReversionEquity(config)
     
@@ -45,6 +47,10 @@ class TestMeanReversionEquity:
             'volume': np.random.uniform(1e6, 2e6, n)
         }, index=dates)
         
+        # Ensure valid OHLC relationships
+        data['high'] = data[['open', 'high', 'close']].max(axis=1)
+        data['low'] = data[['open', 'low', 'close']].min(axis=1)
+        
         data.attrs['symbol'] = 'SPY'
         return data
     
@@ -57,16 +63,16 @@ class TestMeanReversionEquity:
     
     def test_data_validation(self, strategy, sample_data):
         """Test data validation."""
-        assert strategy.validate_data(sample_data) is True
+        assert strategy.validate_data(sample_data) == True
         
         # Test with missing columns
         bad_data = sample_data.drop(columns=['volume'])
-        assert strategy.validate_data(bad_data) is False
+        assert strategy.validate_data(bad_data) == False
         
         # Test with invalid OHLC
         bad_data = sample_data.copy()
         bad_data.loc[bad_data.index[0], 'high'] = bad_data.loc[bad_data.index[0], 'low'] - 1
-        assert strategy.validate_data(bad_data) is False
+        assert strategy.validate_data(bad_data) == False
     
     def test_indicator_calculation(self, strategy, sample_data):
         """Test technical indicator calculations."""

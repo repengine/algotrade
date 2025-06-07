@@ -7,8 +7,8 @@ from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime, time, timedelta
 import talib
 
-from .base import BaseStrategy, Signal, RiskContext
-from ..utils.validators.strategy_validators import validate_intraday_orb_config
+from strategies.base import BaseStrategy, Signal, RiskContext
+from utils.validators.strategy_validators import validate_intraday_orb_config
 
 
 class IntradayORB(BaseStrategy):

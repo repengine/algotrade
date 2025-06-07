@@ -25,7 +25,7 @@ from algostack.core.engine.enhanced_order_manager import EnhancedOrderManager, O
 from algostack.core.executor import Order, OrderSide, OrderType, TimeInForce
 from algostack.core.metrics import MetricsCollector
 from algostack.core.portfolio import PortfolioEngine
-from algostack.core.risk import RiskManager
+from algostack.core.risk import EnhancedRiskManager as RiskManager
 from algostack.strategies.base import BaseStrategy, Signal
 
 logger = logging.getLogger(__name__)

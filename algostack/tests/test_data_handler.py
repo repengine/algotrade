@@ -58,7 +58,10 @@ class TestDataHandler:
         
         # Check values are reasonable
         assert df['atr'].notna().sum() > 0
-        assert (df['volume_ratio'] > 0).all()
+        # Volume ratio will have NaN values for first 20 days due to rolling window
+        valid_volume_ratio = df['volume_ratio'].dropna()
+        assert len(valid_volume_ratio) > 0
+        assert (valid_volume_ratio > 0).all()
     
     def test_cache_functionality(self, data_handler, tmp_path, sample_ohlcv_data):
         """Test caching mechanism."""
@@ -75,8 +78,8 @@ class TestDataHandler:
         df1 = data_handler.get_historical(symbol, start, end)
         assert not df1.empty
         
-        # Check cache file was created
-        cache_files = list(Path(data_handler.cache_dir).glob("*.parquet"))
+        # Check cache file was created (either parquet or pickle)
+        cache_files = list(Path(data_handler.cache_dir).glob("*.parquet")) + list(Path(data_handler.cache_dir).glob("*.pkl"))
         assert len(cache_files) == 1
         
         # Second call should load from cache
@@ -90,8 +93,8 @@ class TestDataHandler:
     def test_cache_size_calculation(self, data_handler, tmp_path):
         """Test cache size calculation."""
         # Create dummy cache files
-        cache_file = Path(data_handler.cache_dir) / "test.parquet"
-        pd.DataFrame({'test': [1, 2, 3]}).to_parquet(cache_file)
+        cache_file = Path(data_handler.cache_dir) / "test.pkl"
+        pd.DataFrame({'test': [1, 2, 3]}).to_pickle(cache_file)
         
         cache_size = data_handler.get_cache_size()
         assert cache_size > 0
@@ -101,14 +104,14 @@ class TestDataHandler:
         # Create dummy cache files
         cache_dir = Path(data_handler.cache_dir)
         for i in range(3):
-            cache_file = cache_dir / f"TEST_{i}.parquet"
-            pd.DataFrame({'test': [i]}).to_parquet(cache_file)
+            cache_file = cache_dir / f"TEST_{i}.pkl"
+            pd.DataFrame({'test': [i]}).to_pickle(cache_file)
         
-        assert len(list(cache_dir.glob("*.parquet"))) == 3
+        assert len(list(cache_dir.glob("*.pkl"))) == 3
         
         # Clear specific symbol
         data_handler.clear_cache('TEST')
-        assert len(list(cache_dir.glob("*.parquet"))) == 0
+        assert len(list(cache_dir.glob("*.pkl"))) == 0
     
     @pytest.mark.integration
     def test_multi_provider_fallback(self, data_handler):

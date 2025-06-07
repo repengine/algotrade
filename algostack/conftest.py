@@ -9,10 +9,13 @@ import pytest
 import pandas as pd
 import numpy as np
 
-from strategies.base import Signal
-
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
+
+# Import mock dependencies first
+import mock_imports
+
+from strategies.base import Signal
 
 
 @pytest.fixture
@@ -64,11 +67,13 @@ def strategy_config() -> Dict[str, Any]:
             'symbols': ['SPY', 'QQQ', 'IWM'],
             'params': {
                 'rsi_period': 2,
-                'rsi_oversold': 10,
-                'rsi_overbought': 90,
+                'rsi_oversold': 10.0,
+                'rsi_overbought': 90.0,
                 'atr_period': 14,
                 'atr_band_mult': 2.5,
-                'stop_loss_atr': 3.0
+                'stop_loss_atr': 3.0,
+                'zscore_threshold': 2.0,
+                'exit_zscore': 0.5
             }
         },
         'trend_following': {
@@ -123,7 +128,6 @@ def mock_market_data() -> Dict[str, pd.DataFrame]:
 @pytest.fixture
 def mock_signals() -> List[Signal]:
     """Generate mock trading signals."""
-    from strategies.base import Signal
     
     return [
         Signal(

@@ -7,8 +7,8 @@ from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime
 import talib
 
-from .base import BaseStrategy, Signal, RiskContext
-from ..utils.validators.strategy_validators import validate_trend_following_config
+from strategies.base import BaseStrategy, Signal, RiskContext
+from utils.validators.strategy_validators import validate_trend_following_config
 
 
 class TrendFollowingMulti(BaseStrategy):

@@ -7,10 +7,10 @@ from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime
 import talib
 
-from .base import BaseStrategy, Signal, RiskContext
-from ..utils.validators.strategy_validators import validate_hybrid_regime_config
-from .mean_reversion_equity import MeanReversionEquity
-from .trend_following_multi import TrendFollowingMulti
+from strategies.base import BaseStrategy, Signal, RiskContext
+from utils.validators.strategy_validators import validate_hybrid_regime_config
+from strategies.mean_reversion_equity import MeanReversionEquity
+from strategies.trend_following_multi import TrendFollowingMulti
 
 
 class HybridRegime(BaseStrategy):

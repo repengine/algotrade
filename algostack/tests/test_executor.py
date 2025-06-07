@@ -6,6 +6,7 @@ import asyncio
 import pytest
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
+from typing import Optional
 
 from algostack.adapters.paper_executor import PaperExecutor
 from algostack.adapters.ibkr_executor import IBKRExecutor

@@ -21,8 +21,8 @@ from aiohttp import ClientSession, ClientTimeout, TCPConnector
 from aiohttp.client_exceptions import ClientError
 from pydantic import BaseModel, Field, validator
 
-from ..strategies.base import Signal
-from ..utils.logging import setup_logger
+from strategies.base import Signal
+from utils.logging import setup_logger
 
 
 class ConnectionState(Enum):

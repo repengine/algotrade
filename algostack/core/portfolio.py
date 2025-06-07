@@ -12,8 +12,8 @@ import numpy as np
 from scipy.optimize import minimize
 from scipy.stats import norm
 
-from ..strategies.base import Signal, RiskContext
-from ..utils.constants import (
+from strategies.base import Signal, RiskContext
+from utils.constants import (
     TRADING_DAYS_PER_YEAR,
     DEFAULT_INITIAL_CAPITAL,
     MIN_TRADES_FOR_KELLY,

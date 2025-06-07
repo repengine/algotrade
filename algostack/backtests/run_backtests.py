@@ -12,8 +12,8 @@ import numpy as np
 import backtrader as bt
 from backtrader.analyzers import SharpeRatio, DrawDown, Returns, TradeAnalyzer
 
-from ..core.data_handler import DataHandler
-from ..strategies.base import BaseStrategy, Signal, RiskContext
+from core.data_handler import DataHandler
+from strategies.base import BaseStrategy, Signal, RiskContext
 
 
 logger = logging.getLogger(__name__)
@@ -157,7 +157,7 @@ class BacktestEngine:
             cerebro.broker.set_slippage_perc(slippage)
         
         # Load data for each symbol
-        data_handler = DataHandler([data_provider])
+        data_handler = DataHandler([data_provider], premium_av=True)
         
         for symbol in symbols:
             # Fetch historical data

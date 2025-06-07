@@ -9,8 +9,8 @@ import talib
 from statsmodels.tsa.stattools import adfuller, coint
 from sklearn.linear_model import LinearRegression
 
-from .base import BaseStrategy, Signal, RiskContext
-from ..utils.validators.strategy_validators import validate_pairs_trading_config
+from strategies.base import BaseStrategy, Signal, RiskContext
+from utils.validators.strategy_validators import validate_pairs_trading_config
 
 
 class PairsStatArb(BaseStrategy):

@@ -6,9 +6,9 @@ from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime
 import talib
 
-from .base import BaseStrategy, Signal, RiskContext
-from ..utils.validators.strategy_validators import validate_mean_reversion_config
-from ..utils.constants import (
+from strategies.base import BaseStrategy, Signal, RiskContext
+from utils.validators.strategy_validators import validate_mean_reversion_config
+from utils.constants import (
     TRADING_DAYS_PER_YEAR,
     DEFAULT_RSI_PERIOD,
     DEFAULT_ATR_PERIOD,

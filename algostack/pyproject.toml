@@ -99,9 +99,15 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q --strict-markers --cov=algostack --cov-report=term-missing"
+addopts = "-ra -q --strict-markers"
 testpaths = ["tests"]
 python_files = "test_*.py"
+markers = [
+    "asyncio: mark test as async",
+    "slow: mark test as slow",
+    "integration: mark test as integration test",
+    "unit: mark test as unit test"
+]
 
 [tool.coverage.run]
 source = ["algostack"]

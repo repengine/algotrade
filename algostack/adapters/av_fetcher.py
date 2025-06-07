@@ -16,13 +16,15 @@ logger = logging.getLogger(__name__)
 class AlphaVantageFetcher:
     """Fetches market data from Alpha Vantage API."""
     
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, premium: bool = False):
         self.api_key = api_key or os.getenv('ALPHA_VANTAGE_API_KEY')
         if not self.api_key:
             raise ValueError("Alpha Vantage API key required")
             
         self.base_url = "https://www.alphavantage.co/query"
-        self.rate_limit_delay = 12  # Free tier: 5 calls/min
+        self.premium = premium
+        # Premium accounts have 75 calls/min, free tier has 5 calls/min
+        self.rate_limit_delay = 0.8 if premium else 12  # seconds between calls
         
     def fetch_ohlcv(
         self,
@@ -55,12 +57,16 @@ class AlphaVantageFetcher:
     def _fetch_daily(self, symbol: str) -> pd.DataFrame:
         """Fetch daily data."""
         params = {
-            'function': 'TIME_SERIES_DAILY',
+            'function': 'TIME_SERIES_DAILY_ADJUSTED',
             'symbol': symbol,
             'apikey': self.api_key,
             'outputsize': 'full',
             'datatype': 'json'
         }
+        
+        # Add realtime entitlement for premium accounts
+        if self.premium:
+            params['entitlement'] = 'realtime'
         
         response = requests.get(self.base_url, params=params)
         data = response.json()
@@ -75,14 +81,33 @@ class AlphaVantageFetcher:
         # Parse data
         time_series = data.get('Time Series (Daily)', {})
         if not time_series:
-            return pd.DataFrame()
+            # Try adjusted format
+            time_series = data.get('Time Series (Daily)', {})
+            if not time_series:
+                return pd.DataFrame()
             
         df = pd.DataFrame.from_dict(time_series, orient='index')
         df.index = pd.to_datetime(df.index)
         df = df.sort_index()
         
-        # Rename columns
-        df.columns = ['open', 'high', 'low', 'close', 'volume']
+        # Rename columns - handle both regular and adjusted data
+        if '5. adjusted close' in df.columns:
+            df = df.rename(columns={
+                '1. open': 'open',
+                '2. high': 'high',
+                '3. low': 'low',
+                '4. close': 'close',
+                '5. adjusted close': 'adj_close',
+                '6. volume': 'volume',
+                '7. dividend amount': 'dividend',
+                '8. split coefficient': 'split'
+            })
+            # Use adjusted close as close
+            df['close'] = df['adj_close']
+            df = df[['open', 'high', 'low', 'close', 'volume']]
+        else:
+            df.columns = ['open', 'high', 'low', 'close', 'volume']
+        
         df = df.astype(float)
         
         return df
@@ -100,6 +125,10 @@ class AlphaVantageFetcher:
             'outputsize': 'full',
             'datatype': 'json'
         }
+        
+        # Add realtime entitlement for premium accounts
+        if self.premium:
+            params['entitlement'] = 'realtime'
         
         response = requests.get(self.base_url, params=params)
         data = response.json()
