@@ -138,7 +138,12 @@ class MeanReversionEquity(BaseStrategy):
             # Entry conditions
             oversold = latest['rsi'] < self.config['rsi_oversold']
             below_band = latest['close'] < latest['lower_band']
-            volume_confirm = latest['volume_ratio'] > 1.2  # 20% above average
+            
+            # Apply volume filter if enabled
+            if self.config.get('volume_filter', True):
+                volume_confirm = latest['volume_ratio'] > 1.2  # 20% above average
+            else:
+                volume_confirm = True  # Always true if filter disabled
             
             if oversold and below_band and volume_confirm:
                 # Calculate signal strength based on oversold magnitude

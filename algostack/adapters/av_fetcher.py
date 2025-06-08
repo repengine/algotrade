@@ -81,10 +81,7 @@ class AlphaVantageFetcher:
         # Parse data
         time_series = data.get('Time Series (Daily)', {})
         if not time_series:
-            # Try adjusted format
-            time_series = data.get('Time Series (Daily)', {})
-            if not time_series:
-                return pd.DataFrame()
+            return pd.DataFrame()
             
         df = pd.DataFrame.from_dict(time_series, orient='index')
         df.index = pd.to_datetime(df.index)
@@ -106,7 +103,14 @@ class AlphaVantageFetcher:
             df['close'] = df['adj_close']
             df = df[['open', 'high', 'low', 'close', 'volume']]
         else:
-            df.columns = ['open', 'high', 'low', 'close', 'volume']
+            # Regular daily data - rename columns properly
+            df = df.rename(columns={
+                '1. open': 'open',
+                '2. high': 'high',
+                '3. low': 'low',
+                '4. close': 'close',
+                '5. volume': 'volume'
+            })
         
         df = df.astype(float)
         
@@ -151,7 +155,13 @@ class AlphaVantageFetcher:
         df = df.sort_index()
         
         # Rename columns
-        df.columns = ['open', 'high', 'low', 'close', 'volume']
+        df = df.rename(columns={
+            '1. open': 'open',
+            '2. high': 'high',
+            '3. low': 'low',
+            '4. close': 'close',
+            '5. volume': 'volume'
+        })
         df = df.astype(float)
         
         return df
