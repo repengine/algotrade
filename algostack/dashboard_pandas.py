@@ -647,6 +647,17 @@ def run_walk_forward_analysis(strategy_manager, strategy_class, strategy_name, u
     
     results = []
     
+    # Get lookback period from strategy parameters
+    lookback_period = user_params.get('lookback_period', 60)
+    
+    # Ensure minimum window size for strategy to work
+    min_window_size = lookback_period * 2  # Need at least 2x lookback for meaningful results
+    
+    if window_size < min_window_size:
+        # Reduce number of windows if necessary
+        n_windows = max(1, total_bars // min_window_size)
+        window_size = total_bars // n_windows
+    
     for i in range(n_windows):
         # Define window boundaries
         window_start = i * window_size
@@ -661,11 +672,21 @@ def run_walk_forward_analysis(strategy_manager, strategy_class, strategy_name, u
             
         # Get data slices
         is_data = data.iloc[window_start:is_end]
-        oos_data = data.iloc[is_end:window_end]
         
-        # Run backtest on out-of-sample data
+        # For OOS, include lookback period from IS data for indicator calculation
+        oos_start_with_lookback = max(0, is_end - lookback_period)
+        oos_data_with_context = data.iloc[oos_start_with_lookback:window_end]
+        
+        # Make sure OOS data has enough bars
+        if len(oos_data_with_context) < lookback_period + 10:  # Need some bars after lookback
+            print(f"Window {i+1}: OOS data too small ({len(oos_data_with_context)} bars), skipping")
+            continue
+        
+        print(f"Window {i+1}: IS={len(is_data)} bars, OOS={window_end - is_end} bars (with {lookback_period} lookback bars)")
+        
+        # Run backtest on out-of-sample data with historical context
         oos_results = strategy_manager.run_backtest(
-            strategy_class, strategy_name, user_params, oos_data, initial_capital
+            strategy_class, strategy_name, user_params, oos_data_with_context, initial_capital
         )
         
         results.append({
