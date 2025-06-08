@@ -1,0 +1,24 @@
+# Core dependencies (TA-Lib free version)
+pandas>=2.0.0
+numpy>=1.24.0
+scipy>=1.10.0
+
+# Data sources
+yfinance>=0.2.28
+requests>=2.31.0
+PyYAML>=6.0
+
+# Dashboard
+streamlit>=1.29.0
+plotly>=5.16.0
+
+# Utilities
+pydantic>=2.0.0
+python-dateutil>=2.8.2
+
+# Testing (optional)
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Note: This requirements file is for the pandas-only version
+# that doesn't require TA-Lib or other C dependencies

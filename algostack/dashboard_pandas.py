@@ -363,7 +363,12 @@ class PandasStrategyManager:
                 current_data.attrs['symbol'] = symbol
                 
                 timestamp = strategy_data.index[i]
-                current_price = float(strategy_data['close'].iloc[i])
+                # Handle both scalar and Series return from iloc
+                close_value = strategy_data['close'].iloc[i]
+                if hasattr(close_value, 'item'):
+                    current_price = float(close_value.item())
+                else:
+                    current_price = float(close_value)
                 
                 # Create mock risk context
                 risk_context = RiskContextMock(account_equity=capital)
@@ -452,12 +457,19 @@ class PandasStrategyManager:
                     'positions': len(positions)
                 })
             
-            print(f"   Generated {signals_count} signals")
-            print(f"   Equity curve has {len(equity_curve)} data points")
+            # Only print signal count if not in optimization mode
+            if not hasattr(strategy, '_suppress_output'):
+                print(f"   Generated {signals_count} signals")
+                print(f"   Equity curve has {len(equity_curve)} data points")
             
             # Close any remaining positions
             for sym, pos in positions.items():
-                exit_price = float(strategy_data['close'].iloc[-1])
+                # Handle both scalar and Series return from iloc
+                close_value = strategy_data['close'].iloc[-1]
+                if hasattr(close_value, 'item'):
+                    exit_price = float(close_value.item())
+                else:
+                    exit_price = float(close_value)
                 
                 if pos['direction'] == 'LONG':
                     pnl = (exit_price - pos['entry_price']) * pos['shares']
@@ -550,8 +562,139 @@ class PandasStrategyManager:
             }
 
 
-def create_performance_chart(results: Dict[str, Any], data: pd.DataFrame) -> go.Figure:
-    """Create performance visualization."""
+def run_monte_carlo_simulation(trades_df: pd.DataFrame, initial_capital: float, n_simulations: int = 1000) -> Dict[str, Any]:
+    """Run Monte Carlo simulation on trade results."""
+    if trades_df.empty:
+        return {}
+    
+    simulation_results = []
+    
+    for _ in range(n_simulations):
+        # Randomly shuffle trades
+        shuffled_trades = trades_df.sample(frac=1).reset_index(drop=True)
+        
+        # Calculate cumulative returns
+        equity = initial_capital
+        equity_curve = [equity]
+        
+        for _, trade in shuffled_trades.iterrows():
+            equity += trade['pnl']
+            equity_curve.append(equity)
+        
+        final_return = (equity / initial_capital - 1) * 100
+        simulation_results.append(final_return)
+    
+    # Calculate statistics
+    results_array = np.array(simulation_results)
+    
+    return {
+        'mean_return': np.mean(results_array),
+        'std_return': np.std(results_array),
+        'percentile_5': np.percentile(results_array, 5),
+        'percentile_25': np.percentile(results_array, 25),
+        'percentile_50': np.percentile(results_array, 50),
+        'percentile_75': np.percentile(results_array, 75),
+        'percentile_95': np.percentile(results_array, 95),
+        'win_probability': (results_array > 0).mean() * 100,
+        'simulation_results': results_array
+    }
+
+
+def detect_market_regimes(data: pd.DataFrame, lookback: int = 20) -> pd.DataFrame:
+    """Detect market regimes based on volatility and trend."""
+    # Calculate indicators
+    data = data.copy()
+    
+    # Handle both uppercase and lowercase column names
+    close_col = 'Close' if 'Close' in data.columns else 'close'
+    
+    # Simple returns
+    data['returns'] = data[close_col].pct_change()
+    
+    # Rolling volatility
+    data['volatility'] = data['returns'].rolling(lookback).std() * np.sqrt(252)
+    
+    # Trend using SMA
+    data['sma_fast'] = data[close_col].rolling(lookback).mean()
+    data['sma_slow'] = data[close_col].rolling(lookback * 3).mean()
+    
+    # Define regimes
+    data['regime'] = 'Normal'
+    
+    # High volatility regime
+    vol_threshold = data['volatility'].quantile(0.75)
+    data.loc[data['volatility'] > vol_threshold, 'regime'] = 'High Volatility'
+    
+    # Trending regime
+    data.loc[(data['sma_fast'] > data['sma_slow'] * 1.02), 'regime'] = 'Uptrend'
+    data.loc[(data['sma_fast'] < data['sma_slow'] * 0.98), 'regime'] = 'Downtrend'
+    
+    # Ranging regime
+    data['price_range'] = data[close_col].rolling(lookback).max() - data[close_col].rolling(lookback).min()
+    data['atr'] = data['price_range'] / data[close_col].rolling(lookback).mean()
+    range_threshold = data['atr'].quantile(0.25)
+    data.loc[data['atr'] < range_threshold, 'regime'] = 'Ranging'
+    
+    return data
+
+
+def run_walk_forward_analysis(strategy_manager, strategy_class, strategy_name, user_params, 
+                             data: pd.DataFrame, initial_capital: float, 
+                             n_windows: int = 5, in_sample_ratio: float = 0.7) -> Dict[str, Any]:
+    """Run walk-forward analysis."""
+    total_bars = len(data)
+    window_size = total_bars // n_windows
+    
+    results = []
+    
+    for i in range(n_windows):
+        # Define window boundaries
+        window_start = i * window_size
+        window_end = min((i + 1) * window_size, total_bars)
+        
+        # Split into in-sample and out-of-sample
+        is_size = int((window_end - window_start) * in_sample_ratio)
+        is_end = window_start + is_size
+        
+        if is_end >= window_end:
+            continue
+            
+        # Get data slices
+        is_data = data.iloc[window_start:is_end]
+        oos_data = data.iloc[is_end:window_end]
+        
+        # Run backtest on out-of-sample data
+        oos_results = strategy_manager.run_backtest(
+            strategy_class, strategy_name, user_params, oos_data, initial_capital
+        )
+        
+        results.append({
+            'window': i + 1,
+            'is_start': data.index[window_start],
+            'is_end': data.index[is_end - 1],
+            'oos_start': data.index[is_end],
+            'oos_end': data.index[window_end - 1],
+            'total_return': oos_results.get('total_return', 0),
+            'sharpe_ratio': oos_results.get('sharpe_ratio', 0),
+            'max_drawdown': oos_results.get('max_drawdown', 0),
+            'num_trades': oos_results.get('num_trades', 0)
+        })
+    
+    # Calculate aggregate statistics
+    returns = [r['total_return'] for r in results]
+    sharpes = [r['sharpe_ratio'] for r in results]
+    
+    return {
+        'windows': results,
+        'avg_return': np.mean(returns),
+        'std_return': np.std(returns),
+        'avg_sharpe': np.mean(sharpes),
+        'consistency': sum(1 for r in returns if r > 0) / len(returns) * 100
+    }
+
+
+def create_performance_chart(results: Dict[str, Any], data: pd.DataFrame, initial_capital: float = 100000) -> go.Figure:
+    """Create performance visualization with buy-and-hold comparison."""
     if 'equity_curve' not in results or results['equity_curve'].empty:
         fig = go.Figure()
         fig.add_annotation(
@@ -567,7 +710,8 @@ def create_performance_chart(results: Dict[str, Any], data: pd.DataFrame) -> go.
         shared_xaxes=True,
         vertical_spacing=0.1,
         row_heights=[0.7, 0.3],
-        subplot_titles=('Equity Curve', 'Drawdown %')
+        subplot_titles=('Portfolio vs Buy & Hold', 'Drawdown %'),
+        specs=[[{"secondary_y": True}], [{"secondary_y": False}]]
     )
     
     # Equity curve
@@ -577,11 +721,73 @@ def create_performance_chart(results: Dict[str, Any], data: pd.DataFrame) -> go.
             x=equity_curve.index,
             y=equity_curve['equity'],
             mode='lines',
-            name='Portfolio Value',
+            name='Strategy Portfolio',
             line=dict(color='blue', width=2)
         ),
-        row=1, col=1
+        row=1, col=1,
+        secondary_y=False
     )
+    
+    # Add buy-and-hold comparison
+    # Get the close price column name
+    close_col = 'Close' if 'Close' in data.columns else 'close'
+    
+    # Filter data to match equity curve dates
+    start_date = equity_curve.index[0]
+    end_date = equity_curve.index[-1]
+    
+    # Handle timezone-aware and naive datetimes
+    if hasattr(data.index, 'tz') and data.index.tz is not None:
+        # Data index is timezone-aware
+        if hasattr(start_date, 'tz') and start_date.tz is None:
+            # Make start/end dates timezone-aware
+            import pytz
+            start_date = pytz.UTC.localize(start_date)
+            end_date = pytz.UTC.localize(end_date)
+    elif hasattr(start_date, 'tz') and start_date.tz is not None:
+        # Start date is timezone-aware but data is not
+        start_date = start_date.tz_localize(None)
+        end_date = end_date.tz_localize(None)
+    
+    # Filter data to the backtest period
+    mask = (data.index >= start_date) & (data.index <= end_date)
+    backtest_data = data[mask]
+    
+    if len(backtest_data) > 0:
+        # Calculate buy-and-hold performance
+        initial_price = backtest_data[close_col].iloc[0]
+        shares_bought = initial_capital / initial_price
+        buy_hold_values = backtest_data[close_col] * shares_bought
+        
+        # Align with equity curve index
+        buy_hold_aligned = pd.Series(index=equity_curve.index, dtype=float)
+        for date in equity_curve.index:
+            # Find closest date in backtest_data
+            if date in backtest_data.index:
+                buy_hold_aligned[date] = backtest_data.loc[date, close_col] * shares_bought
+            else:
+                # Find nearest date
+                distances = abs(backtest_data.index - date)
+                closest_idx = distances.argmin()
+                buy_hold_aligned[date] = backtest_data.iloc[closest_idx][close_col] * shares_bought
+        
+        # Add buy-and-hold line
+        fig.add_trace(
+            go.Scatter(
+                x=buy_hold_aligned.index,
+                y=buy_hold_aligned.values,
+                mode='lines',
+                name='Buy & Hold',
+                line=dict(color='gray', width=2, dash='dash')
+            ),
+            row=1, col=1,
+            secondary_y=False
+        )
+        
+        # Calculate buy-and-hold return for title
+        buy_hold_return = (buy_hold_aligned.iloc[-1] / initial_capital - 1) * 100
+    else:
+        buy_hold_return = 0
     
     # Add buy/sell signals if available
     if 'signal_dates' in results and results['signal_dates']:
@@ -632,8 +838,14 @@ def create_performance_chart(results: Dict[str, Any], data: pd.DataFrame) -> go.
     )
     
     # Update layout
+    strategy_return = results.get('total_return', 0)
+    if 'buy_hold_return' in locals():
+        title_text = f"Strategy Return: {strategy_return:.2f}% | Buy & Hold Return: {buy_hold_return:.2f}%"
+    else:
+        title_text = f"Strategy Return: {strategy_return:.2f}%"
+    
     fig.update_layout(
-        title=f"Strategy Performance - Total Return: {results.get('total_return', 0):.2f}%",
+        title=title_text,
         showlegend=True,
         height=800,
         hovermode='x unified'
@@ -794,8 +1006,67 @@ def main():
         min_value=1000
     )
     
+    # Advanced Analysis Options
+    st.sidebar.subheader("Advanced Analysis")
+    
+    # Monte Carlo Simulation
+    enable_monte_carlo = st.sidebar.checkbox(
+        "Enable Monte Carlo Simulation",
+        value=False,
+        help="Run multiple simulations with random trade ordering to assess strategy robustness"
+    )
+    
+    if enable_monte_carlo:
+        n_simulations = st.sidebar.number_input(
+            "Number of Simulations",
+            value=1000,
+            min_value=100,
+            max_value=10000,
+            step=100,
+            help="More simulations provide better statistical significance"
+        )
+    
+    # Regime Detection
+    enable_regime = st.sidebar.checkbox(
+        "Enable Regime Detection",
+        value=False,
+        help="Analyze performance across different market regimes (trending, ranging, volatile)"
+    )
+    
+    # Walk-Forward Optimization
+    enable_walk_forward = st.sidebar.checkbox(
+        "Enable Walk-Forward Analysis",
+        value=False,
+        help="Test strategy robustness using rolling window optimization"
+    )
+    
+    if enable_walk_forward:
+        walk_forward_windows = st.sidebar.number_input(
+            "Number of Windows",
+            value=5,
+            min_value=3,
+            max_value=20,
+            step=1,
+            help="Number of walk-forward periods"
+        )
+        
+        in_sample_ratio = st.sidebar.slider(
+            "In-Sample Ratio",
+            min_value=0.5,
+            max_value=0.9,
+            value=0.7,
+            step=0.1,
+            help="Proportion of data used for parameter optimization"
+        )
+    
     # Run backtest button
     if st.sidebar.button("🚀 Run Backtest", type="primary"):
+        # Set default values for optional parameters
+        if not enable_monte_carlo:
+            n_simulations = 1000
+        if not enable_walk_forward:
+            walk_forward_windows = 5
+            in_sample_ratio = 0.7
         with st.spinner(f"Fetching {symbol} data from {data_source}..."):
             # Fetch data
             data = data_manager.fetch_data(symbol, period, interval, data_source)
@@ -890,7 +1161,7 @@ def main():
             
             # Performance chart
             st.subheader("Performance Visualization")
-            fig = create_performance_chart(results, data)
+            fig = create_performance_chart(results, data, initial_capital)
             st.plotly_chart(fig, use_container_width=True)
             
             # Trade analysis
@@ -924,6 +1195,140 @@ def main():
                                      'entry_price', 'exit_price', 'pnl', 'return']],
                         use_container_width=True
                     )
+            
+            # Monte Carlo Analysis
+            if enable_monte_carlo and 'trades' in results and not results['trades'].empty:
+                st.subheader("📊 Monte Carlo Analysis")
+                
+                with st.spinner(f"Running {n_simulations} Monte Carlo simulations..."):
+                    mc_results = run_monte_carlo_simulation(
+                        results['trades'], 
+                        initial_capital, 
+                        n_simulations
+                    )
+                
+                if mc_results:
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.metric("Mean Return", f"{mc_results['mean_return']:.2f}%")
+                    with col2:
+                        st.metric("Std Dev", f"{mc_results['std_return']:.2f}%")
+                    with col3:
+                        st.metric("Win Probability", f"{mc_results['win_probability']:.1f}%")
+                    with col4:
+                        st.metric("95% Confidence", 
+                                f"{mc_results['percentile_5']:.1f}% to {mc_results['percentile_95']:.1f}%")
+                    
+                    # Distribution plot
+                    fig_mc = go.Figure()
+                    fig_mc.add_trace(go.Histogram(
+                        x=mc_results['simulation_results'],
+                        nbinsx=50,
+                        name='Return Distribution'
+                    ))
+                    fig_mc.add_vline(x=results['total_return'], line_dash="dash", 
+                                   line_color="red", annotation_text="Actual Return")
+                    fig_mc.update_layout(
+                        title="Monte Carlo Return Distribution",
+                        xaxis_title="Return (%)",
+                        yaxis_title="Frequency",
+                        height=400
+                    )
+                    st.plotly_chart(fig_mc, use_container_width=True)
+            
+            # Regime Analysis
+            if enable_regime:
+                st.subheader("🌐 Market Regime Analysis")
+                
+                with st.spinner("Analyzing market regimes..."):
+                    data_with_regimes = detect_market_regimes(data)
+                    
+                    # Count regimes
+                    regime_counts = data_with_regimes['regime'].value_counts()
+                    
+                    # Display regime distribution
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.write("**Regime Distribution:**")
+                        for regime, count in regime_counts.items():
+                            pct = count / len(data_with_regimes) * 100
+                            st.write(f"- {regime}: {pct:.1f}%")
+                    
+                    with col2:
+                        # Pie chart of regimes
+                        fig_regime = go.Figure(data=[go.Pie(
+                            labels=regime_counts.index,
+                            values=regime_counts.values,
+                            hole=0.3
+                        )])
+                        fig_regime.update_layout(
+                            title="Market Regime Distribution",
+                            height=300
+                        )
+                        st.plotly_chart(fig_regime, use_container_width=True)
+                    
+                    # Performance by regime
+                    if 'equity_curve' in results and not results['equity_curve'].empty:
+                        st.write("**Performance by Regime:**")
+                        # This would require more complex analysis to properly attribute
+                        # performance to different regimes
+                        st.info("Detailed regime performance analysis would require trade-by-trade attribution")
+            
+            # Walk-Forward Analysis
+            if enable_walk_forward:
+                st.subheader("🔄 Walk-Forward Analysis")
+                
+                with st.spinner(f"Running walk-forward analysis with {walk_forward_windows} windows..."):
+                    wf_results = run_walk_forward_analysis(
+                        strategy_manager,
+                        selected_strategy_class,
+                        selected_strategy_name,
+                        user_params,
+                        data,
+                        initial_capital,
+                        walk_forward_windows,
+                        in_sample_ratio
+                    )
+                
+                # Display results
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("Avg Return", f"{wf_results['avg_return']:.2f}%")
+                with col2:
+                    st.metric("Return Std Dev", f"{wf_results['std_return']:.2f}%")
+                with col3:
+                    st.metric("Avg Sharpe", f"{wf_results['avg_sharpe']:.2f}")
+                with col4:
+                    st.metric("Consistency", f"{wf_results['consistency']:.1f}%")
+                
+                # Window results table
+                if wf_results['windows']:
+                    window_df = pd.DataFrame(wf_results['windows'])
+                    st.write("**Window-by-Window Results:**")
+                    st.dataframe(
+                        window_df[['window', 'oos_start', 'oos_end', 
+                                 'total_return', 'sharpe_ratio', 'num_trades']],
+                        use_container_width=True
+                    )
+                    
+                    # Performance chart
+                    fig_wf = go.Figure()
+                    fig_wf.add_trace(go.Bar(
+                        x=[f"Window {w['window']}" for w in wf_results['windows']],
+                        y=[w['total_return'] for w in wf_results['windows']],
+                        name='Out-of-Sample Returns'
+                    ))
+                    fig_wf.add_hline(y=0, line_dash="dash", line_color="gray")
+                    fig_wf.update_layout(
+                        title="Walk-Forward Out-of-Sample Returns",
+                        xaxis_title="Window",
+                        yaxis_title="Return (%)",
+                        height=400
+                    )
+                    st.plotly_chart(fig_wf, use_container_width=True)
 
 
 if __name__ == "__main__":

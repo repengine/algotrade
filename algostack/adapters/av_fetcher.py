@@ -99,8 +99,19 @@ class AlphaVantageFetcher:
                 '7. dividend amount': 'dividend',
                 '8. split coefficient': 'split'
             })
-            # Use adjusted close as close
+            # Convert to float first
+            for col in ['open', 'high', 'low', 'close', 'adj_close']:
+                df[col] = df[col].astype(float)
+                
+            # Calculate adjustment factor
+            df['adj_factor'] = df['adj_close'] / df['close']
+            
+            # Apply adjustment to all price columns for consistency
+            df['open'] = df['open'] * df['adj_factor']
+            df['high'] = df['high'] * df['adj_factor']
+            df['low'] = df['low'] * df['adj_factor']
             df['close'] = df['adj_close']
+            
             df = df[['open', 'high', 'low', 'close', 'volume']]
         else:
             # Regular daily data - rename columns properly
