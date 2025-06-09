@@ -1,7 +1,7 @@
 """Base strategy class for all trading strategies."""
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Optional, Any
 from dataclasses import dataclass
 from datetime import datetime
 import pandas as pd
@@ -19,7 +19,7 @@ class Signal(BaseModel):
     strategy_id: str
     price: float
     atr: Optional[float] = None
-    metadata: Dict[str, Any] = {}
+    metadata: dict[str, Any] = {}
     
     @field_validator("strength")
     @classmethod
@@ -50,7 +50,7 @@ class RiskContext:
 class BaseStrategy(ABC):
     """Abstract base class for all trading strategies."""
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         # Validate configuration before using it
         self.config = self.validate_config(config)
         self.name = self.config.get("name", self.__class__.__name__)
@@ -85,7 +85,7 @@ class BaseStrategy(ABC):
         pass
     
     @abstractmethod
-    def size(self, signal: Signal, risk_context: RiskContext) -> Tuple[float, float]:
+    def size(self, signal: Signal, risk_context: RiskContext) -> tuple[float, float]:
         """
         Calculate position size given signal and risk context.
         
@@ -98,7 +98,7 @@ class BaseStrategy(ABC):
         """
         pass
     
-    def update_performance(self, trade_result: Dict[str, Any]) -> None:
+    def update_performance(self, trade_result: dict[str, Any]) -> None:
         """Update internal performance tracking."""
         self._performance_stats["trades"] += 1
         if trade_result["pnl"] > 0:
@@ -163,7 +163,7 @@ class BaseStrategy(ABC):
         
         return valid_ohlc
     
-    def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def validate_config(self, config: dict[str, Any]) -> dict[str, Any]:
         """
         Validate strategy configuration parameters.
         

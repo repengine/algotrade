@@ -45,7 +45,7 @@ class LiveTradingEngine:
     Coordinates all trading components and manages the execution lifecycle.
     """
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         """
         Initialize trading engine.
         
@@ -71,7 +71,7 @@ class LiveTradingEngine:
         self.metrics_collector = MetricsCollector(initial_capital)
         
         # Initialize strategies
-        self.strategies: Dict[str, BaseStrategy] = {}
+        self.strategies: dict[str, BaseStrategy] = {}
         self._initialize_strategies()
         
         # Initialize executors
@@ -81,7 +81,7 @@ class LiveTradingEngine:
         self.is_running = False
         self.is_trading_hours = False
         self._active_symbols: Set[str] = set()
-        self._last_prices: Dict[str, float] = {}
+        self._last_prices: dict[str, float] = {}
         
         # Scheduling
         self.scheduler = AsyncIOScheduler()
@@ -469,7 +469,7 @@ class LiveTradingEngine:
             except Exception as e:
                 logger.error(f"Error cancelling order {order.order_id}: {e}")
     
-    async def _emergency_liquidation(self, violation: Dict[str, Any]) -> None:
+    async def _emergency_liquidation(self, violation: dict[str, Any]) -> None:
         """Perform emergency liquidation."""
         logger.critical(f"Emergency liquidation triggered: {violation}")
         

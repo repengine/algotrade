@@ -7,7 +7,7 @@ handle missing dependencies gracefully.
 
 import pandas as pd
 import numpy as np
-from typing import Dict, Any, Optional, List
+from typing import Any, Optional
 import warnings
 
 
@@ -157,7 +157,7 @@ class DataFormatConverter:
         return converted
     
     @staticmethod
-    def strategy_to_dashboard(signals: List[Any]) -> pd.DataFrame:
+    def strategy_to_dashboard(signals: list[Any]) -> pd.DataFrame:
         """Convert strategy signals to dashboard format."""
         # Handle different signal types
         if not signals:
@@ -269,7 +269,7 @@ def patch_talib_imports():
         print("📊 Using fallback technical indicators (TA-Lib not available)")
 
 
-def validate_strategy_config(strategy_class: type, config: Dict[str, Any]) -> Dict[str, Any]:
+def validate_strategy_config(strategy_class: type, config: dict[str, Any]) -> dict[str, Any]:
     """Validate and fix strategy configuration."""
     validated_config = config.copy()
     

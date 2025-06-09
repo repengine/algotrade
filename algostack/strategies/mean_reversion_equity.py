@@ -2,9 +2,16 @@
 
 import pandas as pd
 import numpy as np
-from typing import List, Optional, Tuple, Dict, Any
+from typing import Optional, Tuple, Any
 from datetime import datetime
-import talib
+
+try:
+    import talib
+except ImportError:
+    # Use pandas implementation if talib is not available
+    import sys
+    from pandas_indicators import create_talib_compatible_module
+    talib = create_talib_compatible_module()
 
 from strategies.base import BaseStrategy, Signal, RiskContext
 from utils.validators.strategy_validators import validate_mean_reversion_config
@@ -24,7 +31,7 @@ class MeanReversionEquity(BaseStrategy):
     Exit: Close > MA(10) OR Stop Loss at 3 ATR
     """
     
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(self, config: dict[str, Any]) -> None:
         default_config = {
             'name': 'MeanReversionEquity',
             'symbols': ['SPY', 'QQQ', 'IWM', 'DIA'],
@@ -176,7 +183,7 @@ class MeanReversionEquity(BaseStrategy):
                 
         return None
         
-    def size(self, signal: Signal, risk_context: RiskContext) -> Tuple[float, float]:
+    def size(self, signal: Signal, risk_context: RiskContext) -> tuple[float, float]:
         """Calculate position size using volatility scaling and Kelly criterion."""
         if signal.direction == 'FLAT':
             return 0.0, 0.0
@@ -238,6 +245,6 @@ class MeanReversionEquity(BaseStrategy):
             'total_trades': len(trades)
         }
     
-    def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def validate_config(self, config: dict[str, Any]) -> dict[str, Any]:
         """Validate mean reversion strategy configuration."""
         return validate_mean_reversion_config(config)

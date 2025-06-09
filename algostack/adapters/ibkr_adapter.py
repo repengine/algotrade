@@ -155,8 +155,8 @@ class IBKRWebSocketClient:
         self.session: Optional[ClientSession] = None
         self.ws: Optional[aiohttp.ClientWebSocketResponse] = None
         self.logger = setup_logger(self.__class__.__name__)
-        self._subscriptions: Dict[str, Set[str]] = {}
-        self._callbacks: Dict[str, List[Callable]] = {}
+        self._subscriptions: dict[str, Set[str]] = {}
+        self._callbacks: dict[str, list[Callable]] = {}
         self._running = False
         self._heartbeat_task = None
         
@@ -210,7 +210,7 @@ class IBKRWebSocketClient:
             
         self.logger.info("WebSocket disconnected")
         
-    async def subscribe_market_data(self, conid: int, fields: List[str]) -> bool:
+    async def subscribe_market_data(self, conid: int, fields: list[str]) -> bool:
         """Subscribe to market data"""
         try:
             field_list = ",".join(fields)
@@ -344,13 +344,13 @@ class IBKRAdapter:
         self.ws_client: Optional[IBKRWebSocketClient] = None
         self.state = ConnectionState.DISCONNECTED
         self.authenticated = False
-        self.accounts: List[str] = []
+        self.accounts: list[str] = []
         self.selected_account: Optional[str] = None
         
         # Callbacks
-        self._market_data_callbacks: Dict[int, List[Callable]] = {}
-        self._order_callbacks: List[Callable] = []
-        self._pnl_callbacks: List[Callable] = []
+        self._market_data_callbacks: dict[int, list[Callable]] = {}
+        self._order_callbacks: list[Callable] = []
+        self._pnl_callbacks: list[Callable] = []
         
     async def connect(self) -> bool:
         """
@@ -425,8 +425,8 @@ class IBKRAdapter:
         self,
         method: str,
         endpoint: str,
-        data: Optional[Dict] = None,
-        params: Optional[Dict] = None
+        data: Optional[dict] = None,
+        params: Optional[dict] = None
     ) -> Optional[Union[Dict, List]]:
         """Make HTTP request to gateway"""
         url = urljoin(self.base_url, endpoint)
@@ -488,7 +488,7 @@ class IBKRAdapter:
         
     # Market Data Methods
     
-    async def search_contracts(self, symbol: str, sec_type: Optional[str] = None) -> List[Contract]:
+    async def search_contracts(self, symbol: str, sec_type: Optional[str] = None) -> list[Contract]:
         """
         Search for contracts by symbol
         
@@ -518,16 +518,16 @@ class IBKRAdapter:
                 
         return contracts
         
-    async def get_contract_details(self, conid: int) -> Optional[Dict]:
+    async def get_contract_details(self, conid: int) -> Optional[dict]:
         """Get detailed contract information"""
         result = await self._request("GET", f"/v1/api/iserver/contract/{conid}/info")
         return result
         
     async def get_market_data_snapshot(
         self,
-        conids: List[int],
+        conids: list[int],
         fields: Optional[List[str]] = None
-    ) -> Dict[int, Dict]:
+    ) -> dict[int, Dict]:
         """
         Get market data snapshot
         
@@ -621,7 +621,7 @@ class IBKRAdapter:
         
     # Order Management Methods
     
-    async def place_order(self, order: Order) -> Optional[Dict]:
+    async def place_order(self, order: Order) -> Optional[dict]:
         """
         Place an order
         
@@ -677,7 +677,7 @@ class IBKRAdapter:
         )
         return result is not None
         
-    async def get_orders(self, account: Optional[str] = None) -> List[Dict]:
+    async def get_orders(self, account: Optional[str] = None) -> list[Dict]:
         """Get all orders"""
         if not account:
             account = self.selected_account
@@ -685,7 +685,7 @@ class IBKRAdapter:
         result = await self._request("GET", "/v1/api/iserver/account/orders")
         return result.get("orders", []) if result else []
         
-    async def get_order_status(self, order_id: str) -> Optional[Dict]:
+    async def get_order_status(self, order_id: str) -> Optional[dict]:
         """Get order status"""
         result = await self._request("GET", f"/v1/api/iserver/account/order/status/{order_id}")
         return result
@@ -713,7 +713,7 @@ class IBKRAdapter:
         
     # Account Management Methods
     
-    async def get_accounts(self) -> List[str]:
+    async def get_accounts(self) -> list[str]:
         """Get list of accounts"""
         if not self.accounts:
             await self._load_accounts()
@@ -741,7 +741,7 @@ class IBKRAdapter:
             
         return None
         
-    async def get_positions(self, account: Optional[str] = None) -> List[Position]:
+    async def get_positions(self, account: Optional[str] = None) -> list[Position]:
         """Get account positions"""
         if not account:
             account = self.selected_account
@@ -850,6 +850,6 @@ class IBKRAdapter:
         result = await self._request("POST", "/v1/api/tickle")
         return result is not None
         
-    async def get_server_info(self) -> Optional[Dict]:
+    async def get_server_info(self) -> Optional[dict]:
         """Get server information"""
         return await self._request("GET", "/v1/api/one/user")

@@ -7,7 +7,7 @@ submission, tracking, and execution.
 
 import asyncio
 import logging
-from typing import Dict, List, Optional, Callable, Any
+from typing import Optional, Callable, Any
 from datetime import datetime
 from dataclasses import dataclass, field
 from enum import Enum
@@ -68,7 +68,7 @@ class Order:
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
     strategy_id: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     
     def is_active(self) -> bool:
         """Check if order is still active"""
@@ -116,9 +116,9 @@ class OrderManager:
         """
         self.logger = setup_logger(__name__)
         self.exchange_connector = exchange_connector
-        self.orders: Dict[str, Order] = {}
-        self.order_fills: Dict[str, List[OrderFill]] = {}
-        self.order_callbacks: Dict[str, List[Callable]] = {}
+        self.orders: dict[str, Order] = {}
+        self.order_fills: dict[str, list[OrderFill]] = {}
+        self.order_callbacks: dict[str, list[Callable]] = {}
         self._order_lock = asyncio.Lock()
         
     async def create_order(self, 
@@ -280,7 +280,7 @@ class OrderManager:
         """Get order by ID"""
         return self.orders.get(order_id)
         
-    def get_active_orders(self, symbol: Optional[str] = None) -> List[Order]:
+    def get_active_orders(self, symbol: Optional[str] = None) -> list[Order]:
         """Get all active orders, optionally filtered by symbol"""
         active_orders = [o for o in self.orders.values() if o.is_active()]
         
@@ -289,7 +289,7 @@ class OrderManager:
             
         return active_orders
         
-    def get_orders_by_strategy(self, strategy_id: str) -> List[Order]:
+    def get_orders_by_strategy(self, strategy_id: str) -> list[Order]:
         """Get all orders for a specific strategy"""
         return [o for o in self.orders.values() if o.strategy_id == strategy_id]
         
@@ -329,7 +329,7 @@ class OrderManager:
                 except Exception as e:
                     self.logger.error(f"Error in order callback: {e}")
                     
-    def get_order_statistics(self) -> Dict[str, Any]:
+    def get_order_statistics(self) -> dict[str, Any]:
         """Get order statistics"""
         total_orders = len(self.orders)
         active_orders = len([o for o in self.orders.values() if o.is_active()])

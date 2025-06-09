@@ -3,9 +3,15 @@
 
 import pandas as pd
 import numpy as np
-from typing import List, Optional, Tuple, Dict, Any
+from typing import Optional, Tuple, Any
 from datetime import datetime
-import talib
+
+try:
+    import talib
+except ImportError:
+    # Use pandas implementation if talib is not available
+    from pandas_indicators import create_talib_compatible_module
+    talib = create_talib_compatible_module()
 
 from strategies.base import BaseStrategy, Signal, RiskContext
 from utils.validators.strategy_validators import validate_trend_following_config
@@ -19,7 +25,7 @@ class TrendFollowingMulti(BaseStrategy):
     Position sizing: Volatility-scaled across portfolio
     """
     
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(self, config: dict[str, Any]) -> None:
         default_config = {
             'name': 'TrendFollowingMulti',
             'symbols': ['MES', 'MNQ', 'BTC-USD', 'ETH-USD'],  # Micro futures + crypto
@@ -273,7 +279,7 @@ class TrendFollowingMulti(BaseStrategy):
                 
         return None
     
-    def size(self, signal: Signal, risk_context: RiskContext) -> Tuple[float, float]:
+    def size(self, signal: Signal, risk_context: RiskContext) -> tuple[float, float]:
         """Calculate position size using volatility scaling."""
         if signal.direction == 'FLAT':
             return 0.0, 0.0
@@ -323,7 +329,7 @@ class TrendFollowingMulti(BaseStrategy):
         # Basic metrics
         metrics = {
             'total_trades': len(trades),
-            'avg_holding_days': trades.get('holding_periods', 0).mean(),
+            'avg_holding_days': trades['holding_periods'].mean() if 'holding_periods' in trades else 0,
         }
         
         # Separate long and short trades
@@ -356,6 +362,6 @@ class TrendFollowingMulti(BaseStrategy):
         
         return metrics
     
-    def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def validate_config(self, config: dict[str, Any]) -> dict[str, Any]:
         """Validate trend following strategy configuration."""
         return validate_trend_following_config(config)

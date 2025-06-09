@@ -2,7 +2,7 @@
 
 import pytest
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any
 
 from core.portfolio import PortfolioEngine, Position
 from strategies.base import Signal, RiskContext
@@ -12,7 +12,7 @@ class TestPortfolioEngine:
     """Test the portfolio engine functionality."""
     
     @pytest.fixture
-    def portfolio_config(self) -> Dict[str, Any]:
+    def portfolio_config(self) -> dict[str, Any]:
         """Create test portfolio configuration."""
         return {
             'initial_capital': 5000.0,

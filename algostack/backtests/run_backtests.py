@@ -3,7 +3,7 @@
 
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Optional, Any
 from pathlib import Path
 import json
 
@@ -133,13 +133,13 @@ class BacktestEngine:
     def run_backtest(
         self,
         strategy: BaseStrategy,
-        symbols: List[str],
+        symbols: list[str],
         start_date: str,
         end_date: str,
         commission: float = 0.0,
         slippage: float = 0.0005,
         data_provider: str = "yfinance"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Run backtest for a strategy."""
         logger.info(f"Running backtest for {strategy.name} from {start_date} to {end_date}")
         
@@ -232,7 +232,7 @@ class BacktestEngine:
         
         return metrics
     
-    def _extract_metrics(self, cerebro, strategy_results) -> Dict[str, float]:
+    def _extract_metrics(self, cerebro, strategy_results) -> dict[str, float]:
         """Extract performance metrics from backtest results."""
         # Get analyzers
         sharpe = strategy_results.analyzers.sharpe.get_analysis()
@@ -308,13 +308,13 @@ class BacktestEngine:
 
 def run_walk_forward_optimization(
     strategy_class,
-    config: Dict[str, Any],
-    symbols: List[str],
+    config: dict[str, Any],
+    symbols: list[str],
     start_date: str,
     end_date: str,
     window_size: int = 252,  # Trading days in a year
     step_size: int = 63,     # Quarter
-    optimization_params: Dict[str, List[Any]] = None
+    optimization_params: dict[str, list[Any]] = None
 ) -> pd.DataFrame:
     """Run walk-forward optimization."""
     results = []

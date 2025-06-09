@@ -3,9 +3,15 @@
 
 import pandas as pd
 import numpy as np
-from typing import List, Optional, Tuple, Dict, Any
+from typing import Optional, Tuple, Any
 from datetime import datetime
-import talib
+
+try:
+    import talib
+except ImportError:
+    # Use pandas implementation if talib is not available
+    from pandas_indicators import create_talib_compatible_module
+    talib = create_talib_compatible_module()
 
 from strategies.base import BaseStrategy, Signal, RiskContext
 from utils.validators.strategy_validators import validate_hybrid_regime_config
@@ -21,7 +27,7 @@ class HybridRegime(BaseStrategy):
     Uses ADX, Bollinger Band width, and volatility metrics for regime detection
     """
     
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(self, config: dict[str, Any]) -> None:
         default_config = {
             'name': 'HybridRegime',
             'symbols': ['SPY', 'QQQ', 'IWM', 'DIA'],
@@ -75,7 +81,7 @@ class HybridRegime(BaseStrategy):
         self.regime_history.clear()
         self.positions.clear()
     
-    def detect_regime(self, data: pd.DataFrame) -> Dict[str, Any]:
+    def detect_regime(self, data: pd.DataFrame) -> dict[str, Any]:
         """Detect current market regime using multiple indicators."""
         df = data.copy()
         
@@ -310,7 +316,7 @@ class HybridRegime(BaseStrategy):
             
         return signal
     
-    def size(self, signal: Signal, risk_context: RiskContext) -> Tuple[float, float]:
+    def size(self, signal: Signal, risk_context: RiskContext) -> tuple[float, float]:
         """Calculate position size based on active sub-strategy."""
         if signal.direction == 'FLAT':
             return 0.0, 0.0
@@ -364,6 +370,6 @@ class HybridRegime(BaseStrategy):
         
         return metrics
     
-    def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def validate_config(self, config: dict[str, Any]) -> dict[str, Any]:
         """Validate hybrid regime strategy configuration."""
         return validate_hybrid_regime_config(config)

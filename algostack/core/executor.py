@@ -71,7 +71,7 @@ class Order:
     filled_quantity: int = 0
     average_fill_price: float = 0.0
     commission: float = 0.0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -85,7 +85,7 @@ class Fill:
     price: float
     commission: float
     timestamp: datetime
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -120,7 +120,7 @@ class ExecutionCallback(Protocol):
 class BaseExecutor(ABC):
     """Abstract base class for all execution adapters."""
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         """
         Initialize executor.
         
@@ -129,9 +129,9 @@ class BaseExecutor(ABC):
         """
         self.config = config
         self.is_connected = False
-        self.callbacks: List[ExecutionCallback] = []
-        self._orders: Dict[str, Order] = {}
-        self._positions: Dict[str, Position] = {}
+        self.callbacks: list[ExecutionCallback] = []
+        self._orders: dict[str, Order] = {}
+        self._positions: dict[str, Position] = {}
         
     def register_callback(self, callback: ExecutionCallback) -> None:
         """Register execution callback."""
@@ -197,7 +197,7 @@ class BaseExecutor(ABC):
         pass
     
     @abstractmethod
-    async def get_positions(self) -> Dict[str, Position]:
+    async def get_positions(self) -> dict[str, Position]:
         """
         Get all positions.
         
@@ -207,7 +207,7 @@ class BaseExecutor(ABC):
         pass
     
     @abstractmethod
-    async def get_account_info(self) -> Dict[str, Any]:
+    async def get_account_info(self) -> dict[str, Any]:
         """
         Get account information.
         
@@ -262,7 +262,7 @@ class BaseExecutor(ABC):
             
         return True
     
-    def get_open_orders(self) -> List[Order]:
+    def get_open_orders(self) -> list[Order]:
         """Get all open orders."""
         return [
             order for order in self._orders.values()

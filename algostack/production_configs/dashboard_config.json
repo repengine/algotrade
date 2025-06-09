@@ -1,0 +1,21 @@
+{
+  "MeanReversionEquity": {
+    "symbol": "QQQ",
+    "lookback_period": 20,
+    "entry_threshold": 1.5,
+    "exit_threshold": 0.0,
+    "position_size": 0.9,
+    "rsi_period": 10,
+    "rsi_oversold": 30,
+    "rsi_overbought": 70
+  },
+  "TrendFollowingMulti": {
+    "symbol": "SPY",
+    "fast_period": 20,
+    "slow_period": 50,
+    "atr_period": 14,
+    "atr_multiplier": 2.0,
+    "trend_filter_period": 100,
+    "position_size": 0.8
+  }
+}

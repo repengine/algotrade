@@ -42,7 +42,7 @@ class IBKRExecutor(BaseExecutor):
     and provides order execution and position management.
     """
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         """
         Initialize IBKR executor.
         
@@ -65,12 +65,12 @@ class IBKRExecutor(BaseExecutor):
         # Configuration
         self.account = config.get("account")
         self.contract_mappings = config.get("contract_mappings", {})
-        self._symbol_to_conid: Dict[str, int] = {}
-        self._conid_to_symbol: Dict[int, str] = {}
+        self._symbol_to_conid: dict[str, int] = {}
+        self._conid_to_symbol: dict[int, str] = {}
         
         # Order tracking
-        self._ibkr_order_map: Dict[str, str] = {}  # Our order ID -> IBKR order ID
-        self._order_contracts: Dict[str, IBKRContract] = {}  # Order ID -> Contract
+        self._ibkr_order_map: dict[str, str] = {}  # Our order ID -> IBKR order ID
+        self._order_contracts: dict[str, IBKRContract] = {}  # Order ID -> Contract
         
         # Connection monitoring
         self._keep_alive_task: Optional[asyncio.Task] = None
@@ -252,7 +252,7 @@ class IBKRExecutor(BaseExecutor):
                 
         return order
     
-    async def get_positions(self) -> Dict[str, Position]:
+    async def get_positions(self) -> dict[str, Position]:
         """Get all positions."""
         try:
             ibkr_positions = await self.adapter.get_positions(self.account)
@@ -284,7 +284,7 @@ class IBKRExecutor(BaseExecutor):
             logger.error(f"Failed to get positions: {e}")
             return {}
     
-    async def get_account_info(self) -> Dict[str, Any]:
+    async def get_account_info(self) -> dict[str, Any]:
         """Get account information."""
         try:
             info = await self.adapter.get_account_info(self.account)
@@ -393,7 +393,7 @@ class IBKRExecutor(BaseExecutor):
         }
         return status_map.get(ibkr_status, OrderStatus.PENDING)
     
-    def _update_order_from_ibkr(self, order: Order, ibkr_data: Dict[str, Any]) -> None:
+    def _update_order_from_ibkr(self, order: Order, ibkr_data: dict[str, Any]) -> None:
         """Update order from IBKR data."""
         # Update status
         if "status" in ibkr_data:

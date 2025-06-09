@@ -3,7 +3,7 @@
 import logging
 import os
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Union
+from typing import Optional, Union
 from pathlib import Path
 
 import pandas as pd
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class DataHandler:
     """Unified data handler for multiple sources with parquet caching."""
     
-    def __init__(self, providers: List[str], cache_dir: str = "data/cache", api_keys: Optional[Dict[str, str]] = None, premium_av: bool = False) -> None:
+    def __init__(self, providers: list[str], cache_dir: str = "data/cache", api_keys: Optional[Dict[str, str]] = None, premium_av: bool = False) -> None:
         self.providers = providers
         self.cache_dir = Path(cache_dir)
         self.adapters = {}
@@ -137,7 +137,7 @@ class DataHandler:
         logger.info(f"Fetching {symbol} from {provider}")
         return adapter.fetch_ohlcv(symbol, start, end, interval)
         
-    async def get_latest(self, symbols: Optional[List[str]] = None) -> Dict[str, Dict]:
+    async def get_latest(self, symbols: Optional[List[str]] = None) -> dict[str, Dict]:
         """Get latest market data for symbols."""
         latest_data = {}
         

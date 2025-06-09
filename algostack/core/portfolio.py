@@ -3,8 +3,8 @@
 
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple, Any
-from dataclasses import dataclass
+from typing import Optional, Tuple, Any
+from dataclasses import dataclass, field
 import warnings
 
 import pandas as pd
@@ -40,7 +40,7 @@ class Position:
     current_price: float
     stop_loss: float = 0.0
     take_profit: float = 0.0
-    metadata: Dict[str, Any] = None
+    metadata: dict[str, Any] = field(default_factory=dict)
     
     @property
     def market_value(self) -> float:
@@ -65,12 +65,12 @@ class Position:
 class PortfolioEngine:
     """Manages portfolio allocation, risk, and position sizing across strategies."""
     
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(self, config: dict[str, Any]) -> None:
         self.config = config
         self.initial_capital = config.get('initial_capital', DEFAULT_INITIAL_CAPITAL)
         self.current_equity = self.initial_capital
-        self.positions: Dict[str, Position] = {}  # symbol -> Position
-        self.strategy_allocations: Dict[str, float] = {}  # strategy -> allocation
+        self.positions: dict[str, Position] = {}  # symbol -> Position
+        self.strategy_allocations: dict[str, float] = {}  # strategy -> allocation
         self.performance_history = []
         self.correlation_matrix = pd.DataFrame()
         self.volatility_targets = config.get('volatility_targets', {})
@@ -94,13 +94,13 @@ class PortfolioEngine:
         self.strategy_kelly_fractions = {}
         self.strategy_performance = {}  # Track per-strategy metrics
         
-    def update_market_prices(self, prices: Dict[str, float]) -> None:
+    def update_market_prices(self, prices: dict[str, float]) -> None:
         """Update current prices for all positions."""
         for symbol, position in self.positions.items():
             if symbol in prices:
                 position.current_price = prices[symbol]
                 
-    def calculate_portfolio_metrics(self) -> Dict[str, float]:
+    def calculate_portfolio_metrics(self) -> dict[str, float]:
         """Calculate current portfolio metrics."""
         # Calculate total market value
         total_value = self.current_equity
@@ -168,7 +168,7 @@ class PortfolioEngine:
         if len(returns_data.columns) > 1:
             self.correlation_matrix = returns_data.corr()
             
-    def check_risk_limits(self) -> Tuple[bool, List[str]]:
+    def check_risk_limits(self) -> tuple[bool, list[str]]:
         """Check if portfolio is within risk limits."""
         violations = []
         
@@ -197,7 +197,7 @@ class PortfolioEngine:
                             
         return len(violations) == 0, violations
     
-    def allocate_capital(self, signals: List[Signal], market_data: Dict[str, pd.DataFrame]) -> Dict[str, float]:
+    def allocate_capital(self, signals: list[Signal], market_data: dict[str, pd.DataFrame]) -> dict[str, float]:
         """Allocate capital across strategies using volatility budgeting."""
         if not signals:
             return {}
@@ -268,7 +268,7 @@ class PortfolioEngine:
                 
         return allocations
     
-    def size_position(self, signal: Signal, allocation: float) -> Tuple[float, float]:
+    def size_position(self, signal: Signal, allocation: float) -> tuple[float, float]:
         """Size individual position within strategy allocation."""
         # Get risk context
         risk_context = RiskContext(
@@ -345,7 +345,7 @@ class PortfolioEngine:
         
         return position
     
-    def close_position(self, symbol: str, exit_price: float) -> Optional[Dict[str, Any]]:
+    def close_position(self, symbol: str, exit_price: float) -> Optional[dict[str, Any]]:
         """Close a position and calculate P&L."""
         if symbol not in self.positions:
             return None
@@ -424,7 +424,7 @@ class PortfolioEngine:
             
             self.strategy_kelly_fractions[strategy] = kelly
             
-    def check_stops_and_targets(self, current_prices: Dict[str, float]) -> List[Signal]:
+    def check_stops_and_targets(self, current_prices: dict[str, float]) -> list[Signal]:
         """Check stop losses and take profits, generate exit signals."""
         exit_signals = []
         
@@ -473,7 +473,7 @@ class PortfolioEngine:
                     
         return exit_signals
     
-    def global_risk_check(self) -> Tuple[bool, List[Signal]]:
+    def global_risk_check(self) -> tuple[bool, list[Signal]]:
         """Perform global risk check and generate risk-off signals if needed."""
         exit_signals = []
         
@@ -521,7 +521,7 @@ class PortfolioEngine:
             
         return True, exit_signals
     
-    def get_portfolio_summary(self) -> Dict[str, Any]:
+    def get_portfolio_summary(self) -> dict[str, Any]:
         """Get comprehensive portfolio summary."""
         metrics = self.calculate_portfolio_metrics()
         

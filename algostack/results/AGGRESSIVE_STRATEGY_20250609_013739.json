@@ -1,0 +1,16 @@
+{
+  "strategy_name": "Momentum Reversal",
+  "timeframe": "hourly",
+  "expected_annual_return": 361.4893312420551,
+  "parameters": {
+    "lookback": 20,
+    "z_entry": -1.5,
+    "z_exit": 0.5,
+    "rsi_period": 3,
+    "rsi_os": 20,
+    "leverage": 2.5,
+    "stop_loss": -2.5,
+    "max_drawdown": -106.04967340958247
+  },
+  "risk_warning": "This strategy uses leverage and aggressive parameters. Past performance does not guarantee future results. Use proper risk management and never risk more than you can afford to lose."
+}

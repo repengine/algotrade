@@ -59,7 +59,7 @@ class PandasIndicators:
     def MACD(close: Union[pd.Series, pd.DataFrame], 
              fastperiod: int = 12, 
              slowperiod: int = 26, 
-             signalperiod: int = 9) -> Tuple[pd.Series, pd.Series, pd.Series]:
+             signalperiod: int = 9) -> tuple[pd.Series, pd.Series, pd.Series]:
         """MACD - Moving Average Convergence Divergence."""
         if isinstance(close, pd.DataFrame):
             close = close.iloc[:, 0]
@@ -78,7 +78,7 @@ class PandasIndicators:
                timeperiod: int = 20, 
                nbdevup: float = 2.0, 
                nbdevdn: float = 2.0, 
-               matype: int = 0) -> Tuple[pd.Series, pd.Series, pd.Series]:
+               matype: int = 0) -> tuple[pd.Series, pd.Series, pd.Series]:
         """Bollinger Bands."""
         if isinstance(close, pd.DataFrame):
             close = close.iloc[:, 0]
@@ -124,7 +124,7 @@ class PandasIndicators:
               slowk_period: int = 3, 
               slowk_matype: int = 0,
               slowd_period: int = 3,
-              slowd_matype: int = 0) -> Tuple[pd.Series, pd.Series]:
+              slowd_matype: int = 0) -> tuple[pd.Series, pd.Series]:
         """Stochastic Oscillator."""
         if isinstance(high, pd.DataFrame):
             high = high.iloc[:, 0]

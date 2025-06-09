@@ -7,7 +7,7 @@ including strategy execution, order management, and system orchestration.
 
 import asyncio
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Optional, Any
 from datetime import datetime
 from dataclasses import dataclass, field
 from enum import Enum
@@ -196,7 +196,7 @@ class TradingEngine:
         # TODO: Implement order processing
         pass
         
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get engine status"""
         return {
             "state": self.state.value,

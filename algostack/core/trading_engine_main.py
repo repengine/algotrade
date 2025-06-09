@@ -3,13 +3,13 @@
 import asyncio
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Optional, Any
 
 from pydantic import BaseModel
 
 from .data_handler import DataHandler
 from .portfolio import Portfolio
-from .risk import RiskManager
+from .risk import EnhancedRiskManager as RiskManager
 
 
 logger = logging.getLogger(__name__)
@@ -18,9 +18,9 @@ logger = logging.getLogger(__name__)
 class EngineConfig(BaseModel):
     """Configuration for the trading engine."""
     mode: str = "paper"  # paper, live
-    data_providers: List[str] = ["yfinance"]
-    strategies: List[str] = []
-    risk_params: Dict = {}
+    data_providers: list[str] = ["yfinance"]
+    strategies: list[str] = []
+    risk_params: dict = {}
 
 
 class TradingEngine:

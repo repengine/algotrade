@@ -3,7 +3,7 @@
 import sys
 from pathlib import Path
 from datetime import datetime, timedelta
-from typing import Dict, Any, List
+from typing import Any
 
 import pytest
 import pandas as pd
@@ -50,7 +50,7 @@ def sample_ohlcv_data() -> pd.DataFrame:
 
 
 @pytest.fixture
-def portfolio_config() -> Dict[str, Any]:
+def portfolio_config() -> dict[str, Any]:
     """Standard portfolio configuration for testing."""
     return {
         'initial_capital': 10000.0,
@@ -64,7 +64,7 @@ def portfolio_config() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def strategy_config() -> Dict[str, Any]:
+def strategy_config() -> dict[str, Any]:
     """Standard strategy configuration for testing."""
     return {
         'mean_reversion': {
@@ -96,7 +96,7 @@ def strategy_config() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def mock_market_data() -> Dict[str, pd.DataFrame]:
+def mock_market_data() -> dict[str, pd.DataFrame]:
     """Mock market data for multiple symbols."""
     symbols = ['SPY', 'QQQ', 'IWM', 'DIA']
     market_data = {}
@@ -131,7 +131,7 @@ def mock_market_data() -> Dict[str, pd.DataFrame]:
 
 
 @pytest.fixture
-def mock_signals() -> List[Signal]:
+def mock_signals() -> list[Signal]:
     """Generate mock trading signals."""
     
     return [
@@ -159,7 +159,7 @@ def mock_signals() -> List[Signal]:
 
 
 @pytest.fixture
-def risk_config() -> Dict[str, Any]:
+def risk_config() -> dict[str, Any]:
     """Risk management configuration."""
     return {
         'max_var_95': 0.02,

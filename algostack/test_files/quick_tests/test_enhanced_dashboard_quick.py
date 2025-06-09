@@ -14,7 +14,7 @@ import numpy as np
 from datetime import datetime, timedelta
 
 # Import dashboard components
-from dashboard_enhanced import enhanced_backtest, get_optimization_ranges
+from algostack.dashboard import enhanced_backtest, get_optimization_ranges
 from dashboard_pandas import PandasStrategyManager, AlphaVantageDataManager
 
 print("Testing Enhanced Dashboard Components...\n")

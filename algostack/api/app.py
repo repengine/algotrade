@@ -43,8 +43,8 @@ class ConnectionManager:
     """Manages WebSocket connections."""
     
     def __init__(self):
-        self.active_connections: List[WebSocket] = []
-        self.subscriptions: Dict[WebSocket, set] = {}
+        self.active_connections: list[WebSocket] = []
+        self.subscriptions: dict[WebSocket, set] = {}
         
     async def connect(self, websocket: WebSocket):
         """Accept new WebSocket connection."""
@@ -80,12 +80,12 @@ class ConnectionManager:
         for connection in disconnected:
             self.disconnect(connection)
             
-    def subscribe(self, websocket: WebSocket, channels: List[str]):
+    def subscribe(self, websocket: WebSocket, channels: list[str]):
         """Subscribe WebSocket to channels."""
         if websocket in self.subscriptions:
             self.subscriptions[websocket].update(channels)
             
-    def unsubscribe(self, websocket: WebSocket, channels: List[str]):
+    def unsubscribe(self, websocket: WebSocket, channels: list[str]):
         """Unsubscribe WebSocket from channels."""
         if websocket in self.subscriptions:
             self.subscriptions[websocket].difference_update(channels)
@@ -215,7 +215,7 @@ class MonitoringAPI:
             
     # Strategy endpoints
     
-    async def get_strategies(self) -> List[StrategyInfo]:
+    async def get_strategies(self) -> list[StrategyInfo]:
         """Get all strategies."""
         if not self.engine:
             return []
@@ -257,7 +257,7 @@ class MonitoringAPI:
         
     # Position endpoints
     
-    async def get_positions(self) -> List[PositionInfo]:
+    async def get_positions(self) -> list[PositionInfo]:
         """Get all positions."""
         if not self.engine:
             return []
@@ -298,7 +298,7 @@ class MonitoringAPI:
         
     # Order endpoints
     
-    async def get_orders(self, active_only: bool = True) -> List[OrderInfo]:
+    async def get_orders(self, active_only: bool = True) -> list[OrderInfo]:
         """Get orders."""
         if not self.engine:
             return []
@@ -448,7 +448,7 @@ class MonitoringAPI:
         
     # Alert endpoints
     
-    async def get_alerts(self, limit: int = 100) -> List[AlertInfo]:
+    async def get_alerts(self, limit: int = 100) -> list[AlertInfo]:
         """Get recent alerts."""
         # TODO: Implement alert storage
         return []
@@ -460,14 +460,14 @@ class MonitoringAPI:
         
     # Signal endpoints
     
-    async def get_signals(self, limit: int = 100) -> List[SignalInfo]:
+    async def get_signals(self, limit: int = 100) -> list[SignalInfo]:
         """Get recent signals."""
         # TODO: Implement signal storage
         return []
         
     # Trade history endpoints
     
-    async def get_trades(self, limit: int = 100) -> List[TradeInfo]:
+    async def get_trades(self, limit: int = 100) -> list[TradeInfo]:
         """Get completed trades."""
         if not self.engine:
             return []

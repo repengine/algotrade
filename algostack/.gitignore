@@ -4,71 +4,51 @@ __pycache__/
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-PIPFILE.lock
-
-# Virtual environments
+env/
 venv/
 ENV/
-env/
-.venv/
-
-# IDEs
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# Testing
-.tox/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
 .coverage
 .coverage.*
-.cache
-.pytest_cache/
-nosetests.xml
 coverage.xml
 *.cover
 .hypothesis/
+.mypy_cache/
+.dmypy.json
+dmypy.json
 
-# Data and logs
-data/
+# Poetry
+poetry.lock
+dist/
+
+# Data & Logs
+data/cache/
+*.parquet
 logs/
 *.log
-*.parquet
-*.csv
 
-# Secrets
+# Config
 .env
-*.pem
-*.key
-secrets/
+*.env
+config/live_*.yaml
+config/production.yaml
 
-# Jupyter
-.ipynb_checkpoints/
-*.ipynb
-
-# Backtest results
-backtest_results/
-*.pkl
-
-# Docker
-*.pid
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
 # OS
+.DS_Store
 Thumbs.db
+
+# Project specific
+backtest_results/
+performance_reports/
+*.pkl
+*.h5

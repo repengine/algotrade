@@ -1,0 +1,24 @@
+{
+  "strategy": "MeanReversionHourly",
+  "timeframe": "1h",
+  "name": "Very Tight Mean Reversion",
+  "parameters": {
+    "lookback_hours": 24,
+    "zscore_threshold": 1.0,
+    "exit_zscore": -0.25,
+    "rsi_hours": 8,
+    "rsi_oversold": 35.0,
+    "rsi_overbought": 65.0
+  },
+  "performance": {
+    "total_return": 2.5616717529296875,
+    "num_trades": 25,
+    "win_rate": 68.0,
+    "annualized_return": 6.137320165699367
+  },
+  "tested_period": {
+    "start": "2025-01-02 09:30:00-05:00",
+    "end": "2025-06-06 15:30:00-04:00",
+    "days": 155
+  }
+}

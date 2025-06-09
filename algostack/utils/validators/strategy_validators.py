@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Strategy parameter validation utilities."""
 
-from typing import Dict, Any, List, Optional, Union
+from typing import Any, List, Optional, Union
 import logging
 
 logger = logging.getLogger(__name__)
@@ -11,8 +11,8 @@ class StrategyParameterValidator:
     """Validates strategy configuration parameters."""
     
     @staticmethod
-    def validate_config(config: Dict[str, Any], required_params: Dict[str, type], 
-                       optional_params: Optional[Dict[str, tuple]] = None) -> Dict[str, Any]:
+    def validate_config(config: dict[str, Any], required_params: dict[str, type], 
+                       optional_params: Optional[dict[str, tuple]] = None) -> dict[str, Any]:
         """
         Validate strategy configuration parameters.
         
@@ -85,7 +85,7 @@ class StrategyParameterValidator:
             raise ValueError(f"{param_name} must be in HH:MM:SS format, got {time_str}")
     
     @staticmethod
-    def validate_symbol_list(symbols: List[str], param_name: str = "symbols") -> None:
+    def validate_symbol_list(symbols: list[str], param_name: str = "symbols") -> None:
         """Validate list of trading symbols."""
         if not symbols:
             raise ValueError(f"{param_name} cannot be empty")
@@ -93,7 +93,7 @@ class StrategyParameterValidator:
             raise ValueError(f"All items in {param_name} must be non-empty strings")
 
 
-def validate_mean_reversion_config(config: Dict[str, Any]) -> Dict[str, Any]:
+def validate_mean_reversion_config(config: dict[str, Any]) -> dict[str, Any]:
     """Validate mean reversion strategy configuration."""
     validator = StrategyParameterValidator()
     
@@ -131,7 +131,7 @@ def validate_mean_reversion_config(config: Dict[str, Any]) -> Dict[str, Any]:
     return validated
 
 
-def validate_trend_following_config(config: Dict[str, Any]) -> Dict[str, Any]:
+def validate_trend_following_config(config: dict[str, Any]) -> dict[str, Any]:
     """Validate trend following strategy configuration."""
     validator = StrategyParameterValidator()
     
@@ -163,7 +163,7 @@ def validate_trend_following_config(config: Dict[str, Any]) -> Dict[str, Any]:
     return validated
 
 
-def validate_pairs_trading_config(config: Dict[str, Any]) -> Dict[str, Any]:
+def validate_pairs_trading_config(config: dict[str, Any]) -> dict[str, Any]:
     """Validate pairs trading strategy configuration."""
     validator = StrategyParameterValidator()
     
@@ -194,7 +194,7 @@ def validate_pairs_trading_config(config: Dict[str, Any]) -> Dict[str, Any]:
     return validated
 
 
-def validate_intraday_orb_config(config: Dict[str, Any]) -> Dict[str, Any]:
+def validate_intraday_orb_config(config: dict[str, Any]) -> dict[str, Any]:
     """Validate intraday ORB strategy configuration."""
     validator = StrategyParameterValidator()
     
@@ -227,7 +227,7 @@ def validate_intraday_orb_config(config: Dict[str, Any]) -> Dict[str, Any]:
     return validated
 
 
-def validate_overnight_drift_config(config: Dict[str, Any]) -> Dict[str, Any]:
+def validate_overnight_drift_config(config: dict[str, Any]) -> dict[str, Any]:
     """Validate overnight drift strategy configuration."""
     validator = StrategyParameterValidator()
     
@@ -262,7 +262,7 @@ def validate_overnight_drift_config(config: Dict[str, Any]) -> Dict[str, Any]:
     return validated
 
 
-def validate_hybrid_regime_config(config: Dict[str, Any]) -> Dict[str, Any]:
+def validate_hybrid_regime_config(config: dict[str, Any]) -> dict[str, Any]:
     """Validate hybrid regime strategy configuration."""
     validator = StrategyParameterValidator()
     

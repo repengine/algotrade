@@ -3,9 +3,15 @@
 
 import pandas as pd
 import numpy as np
-from typing import List, Optional, Tuple, Dict, Any
+from typing import Optional, Tuple, Any
 from datetime import datetime, time, timedelta
-import talib
+
+try:
+    import talib
+except ImportError:
+    # Use pandas implementation if talib is not available
+    from pandas_indicators import create_talib_compatible_module
+    talib = create_talib_compatible_module()
 
 from strategies.base import BaseStrategy, Signal, RiskContext
 from utils.validators.strategy_validators import validate_intraday_orb_config
@@ -19,7 +25,7 @@ class IntradayORB(BaseStrategy):
     Trade: Once per day per symbol
     """
     
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(self, config: dict[str, Any]) -> None:
         default_config = {
             'name': 'IntradayORB',
             'symbols': ['SPY', 'QQQ', 'IWM'],
@@ -53,7 +59,7 @@ class IntradayORB(BaseStrategy):
         self, 
         data: pd.DataFrame,
         current_date: datetime.date
-    ) -> Optional[Dict[str, float]]:
+    ) -> Optional[dict[str, float]]:
         """Calculate the opening range for the day."""
         # Get market open time (9:30 AM)
         market_open = datetime.combine(current_date, time(9, 30))
@@ -303,7 +309,7 @@ class IntradayORB(BaseStrategy):
         # But ORB requires intraday data
         return None
     
-    def size(self, signal: Signal, risk_context: RiskContext) -> Tuple[float, float]:
+    def size(self, signal: Signal, risk_context: RiskContext) -> tuple[float, float]:
         """Calculate position size for ORB trades."""
         if signal.direction == 'FLAT':
             return 0.0, 0.0
@@ -343,6 +349,6 @@ class IntradayORB(BaseStrategy):
         # Keep positions as they might be from previous day
         # (though ORB should close all by end of day)
     
-    def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def validate_config(self, config: dict[str, Any]) -> dict[str, Any]:
         """Validate intraday ORB strategy configuration."""
         return validate_intraday_orb_config(config)

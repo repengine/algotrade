@@ -9,7 +9,7 @@ from pathlib import Path
 import click
 import yaml
 
-from core.engine import TradingEngine, EngineConfig
+from core.trading_engine_main import TradingEngine, EngineConfig
 from strategies.mean_reversion_equity import MeanReversionEquity
 
 

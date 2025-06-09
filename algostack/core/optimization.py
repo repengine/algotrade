@@ -10,7 +10,7 @@ Implements multiple optimization methods:
 
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Tuple, Any, Callable, Optional
+from typing import Any, Callable, Optional, Dict, List, Tuple
 import optuna
 from optuna.samplers import TPESampler
 import logging
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class OptimizationResult:
     """Container for optimization results."""
-    best_params: Dict[str, Any]
+    best_params: dict[str, Any]
     best_value: float
     all_results: pd.DataFrame
     plateau_info: Optional[Dict[str, Any]] = None
@@ -44,7 +44,7 @@ class PlateauDetector:
         self.stability_threshold = stability_threshold
         self.smoothing_factor = smoothing_factor
         
-    def find_plateaus(self, results_df: pd.DataFrame, metric_col: str = 'sharpe') -> List[Dict[str, Any]]:
+    def find_plateaus(self, results_df: pd.DataFrame, metric_col: str = 'sharpe') -> list[Dict[str, Any]]:
         """Find stable plateau regions in parameter space."""
         
         plateaus = []
@@ -64,7 +64,7 @@ class PlateauDetector:
             
         return plateaus
     
-    def _find_1d_plateaus(self, df: pd.DataFrame, param_col: str, metric_col: str) -> List[Dict[str, Any]]:
+    def _find_1d_plateaus(self, df: pd.DataFrame, param_col: str, metric_col: str) -> list[Dict[str, Any]]:
         """Find plateaus in 1D parameter space."""
         
         # Sort by parameter value
@@ -107,7 +107,7 @@ class PlateauDetector:
                 
         return plateaus
     
-    def _find_2d_plateaus(self, df: pd.DataFrame, param_cols: List[str], metric_col: str) -> List[Dict[str, Any]]:
+    def _find_2d_plateaus(self, df: pd.DataFrame, param_cols: list[str], metric_col: str) -> list[Dict[str, Any]]:
         """Find plateaus in 2D parameter space using image processing techniques."""
         
         # Create 2D grid
@@ -169,7 +169,7 @@ class PlateauDetector:
                 
         return plateaus
     
-    def _find_nd_plateaus(self, df: pd.DataFrame, param_cols: List[str], metric_col: str) -> List[Dict[str, Any]]:
+    def _find_nd_plateaus(self, df: pd.DataFrame, param_cols: list[str], metric_col: str) -> list[Dict[str, Any]]:
         """Find plateaus in high-dimensional space using clustering."""
         
         # Normalize parameters
@@ -231,7 +231,7 @@ class CoarseToFineOptimizer:
         
     def optimize(self,
                 objective_func: Callable,
-                param_ranges: Dict[str, Tuple[float, float]],
+                param_ranges: dict[str, tuple[float, float]],
                 n_jobs: int = -1) -> OptimizationResult:
         """Run coarse-to-fine optimization."""
         
@@ -282,7 +282,7 @@ class CoarseToFineOptimizer:
     
     def _coarse_search(self, 
                       objective_func: Callable,
-                      param_ranges: Dict[str, Tuple[float, float]],
+                      param_ranges: dict[str, tuple[float, float]],
                       n_jobs: int) -> pd.DataFrame:
         """Perform coarse grid search."""
         
@@ -304,6 +304,7 @@ class CoarseToFineOptimizer:
         results = []
         
         if n_jobs == -1:
+            import os
             n_jobs = os.cpu_count()
             
         with ProcessPoolExecutor(max_workers=n_jobs) as executor:
@@ -328,7 +329,7 @@ class CoarseToFineOptimizer:
     
     def _fine_search(self,
                     objective_func: Callable,
-                    param_ranges: Dict[str, Tuple[float, float]],
+                    param_ranges: dict[str, tuple[float, float]],
                     n_jobs: int) -> pd.DataFrame:
         """Perform fine grid search in a specific region."""
         
@@ -359,7 +360,7 @@ class BayesianOptimizer:
         
     def optimize(self,
                 objective_builder: Callable,
-                param_space: Dict[str, Dict[str, Any]],
+                param_space: dict[str, dict[str, Any]],
                 direction: str = "maximize",
                 multi_objective: bool = False) -> OptimizationResult:
         """Run Bayesian optimization."""
@@ -453,7 +454,7 @@ class BayesianOptimizer:
             convergence_history=[t.value for t in study.trials] if not multi_objective else None
         )
     
-    def _calculate_stability(self, trials_df: pd.DataFrame, best_params: Dict[str, Any]) -> float:
+    def _calculate_stability(self, trials_df: pd.DataFrame, best_params: dict[str, Any]) -> float:
         """Calculate stability score for optimal parameters."""
         
         # Get top 10% of trials
@@ -490,7 +491,7 @@ class EnsembleOptimizer:
         self.n_ensemble = n_ensemble
         self.diversity_weight = diversity_weight
         
-    def create_ensemble(self, optimization_result: OptimizationResult) -> List[Dict[str, Any]]:
+    def create_ensemble(self, optimization_result: OptimizationResult) -> list[Dict[str, Any]]:
         """Create diverse ensemble of good parameters."""
         
         results_df = optimization_result.all_results
@@ -546,7 +547,7 @@ class EnsembleOptimizer:
             
         return ensemble
     
-    def _params_equal(self, params1: Dict[str, Any], params2: Dict[str, Any]) -> bool:
+    def _params_equal(self, params1: dict[str, Any], params2: dict[str, Any]) -> bool:
         """Check if two parameter sets are equal."""
         for key in params1:
             if key not in params2:
@@ -558,7 +559,7 @@ class EnsembleOptimizer:
                 return False
         return True
     
-    def _param_distance(self, params1: Dict[str, Any], params2: Dict[str, Any]) -> float:
+    def _param_distance(self, params1: dict[str, Any], params2: dict[str, Any]) -> float:
         """Calculate normalized distance between parameter sets."""
         distances = []
         
@@ -622,7 +623,7 @@ def create_optuna_objective(strategy_class,
 
 
 # Convenience function for parameter space definition
-def define_param_space(param_definitions: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+def define_param_space(param_definitions: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Convert simple parameter definitions to Optuna format."""
     
     param_space = {}
@@ -657,4 +658,130 @@ def define_param_space(param_definitions: Dict[str, Any]) -> Dict[str, Dict[str,
     return param_space
 
 
-import os
+class OptimizationDataPipeline:
+    """Handles data splitting and preparation for optimization."""
+    
+    def __init__(self, 
+                 train_ratio: float = 0.6,
+                 val_ratio: float = 0.2,
+                 test_ratio: float = 0.2,
+                 purge_days: int = 2):
+        """
+        Initialize data pipeline.
+        
+        Args:
+            train_ratio: Fraction of data for training
+            val_ratio: Fraction of data for validation
+            test_ratio: Fraction of data for testing
+            purge_days: Number of days to purge between splits to avoid lookahead bias
+        """
+        assert abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-6, "Ratios must sum to 1"
+        
+        self.train_ratio = train_ratio
+        self.val_ratio = val_ratio
+        self.test_ratio = test_ratio
+        self.purge_days = purge_days
+        
+    def split_data(self, data: pd.DataFrame, 
+                   ensure_min_samples: int = 100) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+        """
+        Split data into train/validation/test sets with purging.
+        
+        Args:
+            data: Time series data to split
+            ensure_min_samples: Minimum samples per split
+            
+        Returns:
+            Tuple of (train_data, val_data, test_data)
+        """
+        n_samples = len(data)
+        
+        # Calculate split points
+        train_end = int(n_samples * self.train_ratio)
+        val_end = int(n_samples * (self.train_ratio + self.val_ratio))
+        
+        # Ensure minimum samples
+        if train_end < ensure_min_samples:
+            raise ValueError(f"Training set too small: {train_end} < {ensure_min_samples}")
+        if val_end - train_end - self.purge_days < ensure_min_samples:
+            raise ValueError(f"Validation set too small")
+        if n_samples - val_end - self.purge_days < ensure_min_samples:
+            raise ValueError(f"Test set too small")
+        
+        # Split with purging
+        train_data = data.iloc[:train_end]
+        val_data = data.iloc[train_end + self.purge_days:val_end]
+        test_data = data.iloc[val_end + self.purge_days:]
+        
+        logger.info(f"Data split - Train: {len(train_data)}, Val: {len(val_data)}, Test: {len(test_data)}")
+        
+        return train_data, val_data, test_data
+    
+    def create_walk_forward_splits(self, data: pd.DataFrame,
+                                  window_size: int = 252,
+                                  step_size: int = 63,
+                                  min_train_size: int = 504) -> list[Tuple[pd.DataFrame, pd.DataFrame]]:
+        """
+        Create walk-forward analysis splits.
+        
+        Args:
+            data: Time series data
+            window_size: Size of test window (default 1 year)
+            step_size: Step between windows (default 3 months)
+            min_train_size: Minimum training data size (default 2 years)
+            
+        Returns:
+            List of (train, test) DataFrames
+        """
+        splits = []
+        n_samples = len(data)
+        
+        # Start from minimum training size
+        train_end = min_train_size
+        
+        while train_end + window_size <= n_samples:
+            # Training data
+            train_data = data.iloc[:train_end]
+            
+            # Test data (with purge)
+            test_start = train_end + self.purge_days
+            test_end = min(test_start + window_size, n_samples)
+            test_data = data.iloc[test_start:test_end]
+            
+            if len(test_data) >= window_size // 2:  # At least half window
+                splits.append((train_data, test_data))
+            
+            # Move to next window
+            train_end += step_size
+            
+        logger.info(f"Created {len(splits)} walk-forward splits")
+        return splits
+    
+    def prepare_features(self, data: pd.DataFrame, 
+                        feature_engineering: bool = True) -> pd.DataFrame:
+        """
+        Prepare features for optimization.
+        
+        Args:
+            data: Raw price data
+            feature_engineering: Whether to add engineered features
+            
+        Returns:
+            DataFrame with prepared features
+        """
+        prepared = data.copy()
+        
+        if feature_engineering:
+            # Add basic features
+            prepared['returns'] = prepared['close'].pct_change()
+            prepared['log_returns'] = np.log(prepared['close'] / prepared['close'].shift(1))
+            prepared['volume_ratio'] = prepared['volume'] / prepared['volume'].rolling(20).mean()
+            
+            # Price-based features
+            prepared['high_low_ratio'] = prepared['high'] / prepared['low']
+            prepared['close_open_ratio'] = prepared['close'] / prepared['open']
+            
+            # Remove NaN rows
+            prepared = prepared.dropna()
+            
+        return prepared

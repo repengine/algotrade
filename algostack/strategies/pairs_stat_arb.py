@@ -3,9 +3,15 @@
 
 import pandas as pd
 import numpy as np
-from typing import List, Optional, Tuple, Dict, Any
+from typing import Optional, Tuple, Any
 from datetime import datetime
-import talib
+
+try:
+    import talib
+except ImportError:
+    # Use pandas implementation if talib is not available
+    from pandas_indicators import create_talib_compatible_module
+    talib = create_talib_compatible_module()
 from statsmodels.tsa.stattools import adfuller, coint
 from sklearn.linear_model import LinearRegression
 
@@ -21,7 +27,7 @@ class PairsStatArb(BaseStrategy):
     Pairs: Automatically selected based on cointegration tests
     """
     
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(self, config: dict[str, Any]) -> None:
         default_config = {
             'name': 'PairsStatArb',
             'symbols': [],  # Will be populated with pairs
@@ -53,9 +59,9 @@ class PairsStatArb(BaseStrategy):
     
     def find_cointegrated_pairs(
         self, 
-        symbols: List[str], 
-        price_data: Dict[str, pd.DataFrame]
-    ) -> List[Tuple[str, str, float]]:
+        symbols: list[str], 
+        price_data: dict[str, pd.DataFrame]
+    ) -> list[Tuple[str, str, float]]:
         """Find cointegrated pairs from a list of symbols."""
         pairs = []
         
@@ -188,8 +194,8 @@ class PairsStatArb(BaseStrategy):
     
     def next_pairs(
         self, 
-        price_data: Dict[str, pd.DataFrame]
-    ) -> List[Signal]:
+        price_data: dict[str, pd.DataFrame]
+    ) -> list[Signal]:
         """Process multiple symbols and generate pairs trading signals."""
         signals = []
         current_time = datetime.now()
@@ -398,7 +404,7 @@ class PairsStatArb(BaseStrategy):
         
         return signals
     
-    def size(self, signal: Signal, risk_context: RiskContext) -> Tuple[float, float]:
+    def size(self, signal: Signal, risk_context: RiskContext) -> tuple[float, float]:
         """Calculate position size for pairs trading legs."""
         if signal.direction == 'FLAT':
             return 0.0, 0.0
@@ -429,6 +435,6 @@ class PairsStatArb(BaseStrategy):
         
         return position_size, stop_loss
     
-    def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def validate_config(self, config: dict[str, Any]) -> dict[str, Any]:
         """Validate pairs trading strategy configuration."""
         return validate_pairs_trading_config(config)

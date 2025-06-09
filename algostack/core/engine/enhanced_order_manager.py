@@ -61,17 +61,17 @@ class EnhancedOrderManager(ExecutionCallback):
             risk_manager: Risk manager for order validation
         """
         self.risk_manager = risk_manager
-        self.executors: Dict[str, BaseExecutor] = {}
+        self.executors: dict[str, BaseExecutor] = {}
         self.active_executor: Optional[str] = None
         
         # Order tracking
-        self._orders: Dict[str, Order] = {}
-        self._order_fills: Dict[str, List[Fill]] = defaultdict(list)
-        self._order_events: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-        self._strategy_orders: Dict[str, Set[str]] = defaultdict(set)
+        self._orders: dict[str, Order] = {}
+        self._order_fills: dict[str, list[Fill]] = defaultdict(list)
+        self._order_events: dict[str, list[Dict[str, Any]]] = defaultdict(list)
+        self._strategy_orders: dict[str, Set[str]] = defaultdict(set)
         
         # Callbacks
-        self._event_callbacks: Dict[str, List[OrderEventCallback]] = defaultdict(list)
+        self._event_callbacks: dict[str, list[OrderEventCallback]] = defaultdict(list)
         
         # Statistics
         self._order_stats = {
@@ -257,7 +257,7 @@ class EnhancedOrderManager(ExecutionCallback):
         """Get order by ID."""
         return self._orders.get(order_id)
     
-    def get_active_orders(self, symbol: Optional[str] = None) -> List[Order]:
+    def get_active_orders(self, symbol: Optional[str] = None) -> list[Order]:
         """Get active orders, optionally filtered by symbol."""
         active_orders = [
             order for order in self._orders.values()
@@ -269,12 +269,12 @@ class EnhancedOrderManager(ExecutionCallback):
             
         return active_orders
     
-    def get_strategy_orders(self, strategy_id: str) -> List[Order]:
+    def get_strategy_orders(self, strategy_id: str) -> list[Order]:
         """Get all orders for a strategy."""
         order_ids = self._strategy_orders.get(strategy_id, set())
         return [self._orders[oid] for oid in order_ids if oid in self._orders]
     
-    async def get_positions(self, executor_name: Optional[str] = None) -> Dict[str, Position]:
+    async def get_positions(self, executor_name: Optional[str] = None) -> dict[str, Position]:
         """
         Get positions from executor.
         
@@ -295,7 +295,7 @@ class EnhancedOrderManager(ExecutionCallback):
         """Register callback for order events."""
         self._event_callbacks[event_type].append(callback)
     
-    def get_order_statistics(self) -> Dict[str, Any]:
+    def get_order_statistics(self) -> dict[str, Any]:
         """Get comprehensive order statistics."""
         stats = self._order_stats.copy()
         

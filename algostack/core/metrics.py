@@ -68,12 +68,12 @@ class MetricsCollector:
         self.initial_capital = initial_capital
         
         # Trade history
-        self.trades: List[Trade] = []
-        self.open_trades: Dict[str, Dict] = {}  # symbol -> trade info
+        self.trades: list[Trade] = []
+        self.open_trades: dict[str, Dict] = {}  # symbol -> trade info
         
         # Portfolio value tracking
         self.value_history: Deque[Tuple[datetime, float]] = deque(maxlen=10000)
-        self.daily_metrics: Dict[datetime, DailyMetrics] = {}
+        self.daily_metrics: dict[datetime, DailyMetrics] = {}
         
         # Current state
         self.current_value = initial_capital
@@ -225,10 +225,10 @@ class MetricsCollector:
             net_pnl=net_pnl,
         )
         
-        self.daily_metrics[date.date()] = metrics
+        self.daily_metrics[date] = metrics
         return metrics
         
-    def get_performance_metrics(self) -> Dict[str, float]:
+    def get_performance_metrics(self) -> dict[str, float]:
         """Calculate comprehensive performance metrics."""
         # Check cache
         if self._metrics_cache and self._cache_timestamp:
@@ -375,7 +375,7 @@ class MetricsCollector:
             
         return annualized_return / self.max_drawdown
         
-    def _calculate_strategy_performance(self) -> Dict[str, Dict[str, float]]:
+    def _calculate_strategy_performance(self) -> dict[str, dict[str, float]]:
         """Calculate performance breakdown by strategy."""
         strategy_metrics = {}
         

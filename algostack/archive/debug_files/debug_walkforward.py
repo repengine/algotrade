@@ -17,7 +17,7 @@ import time
 # Import components
 from core.backtest_engine import WalkForwardAnalyzer
 from dashboard_pandas import PandasStrategyManager
-from dashboard_enhanced import get_optimization_ranges
+from algostack.dashboard import get_optimization_ranges
 
 # Initialize
 strategy_manager = PandasStrategyManager()

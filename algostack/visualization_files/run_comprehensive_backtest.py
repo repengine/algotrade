@@ -13,7 +13,7 @@ import os
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any
 
 import pandas as pd
 import yaml
@@ -269,7 +269,7 @@ class ComprehensiveBacktester:
         
         return results_df
         
-    def _print_summary_comparison(self, results: List[Dict]):
+    def _print_summary_comparison(self, results: list[Dict]):
         """Print summary comparison of all strategies."""
         if not results:
             return

@@ -7,7 +7,7 @@ execution algorithms, and order slicing.
 
 import asyncio
 import logging
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Optional, Tuple, Any
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 from enum import Enum
@@ -44,7 +44,7 @@ class ExecutionParams:
 class ExecutionPlan:
     """Execution plan for an order"""
     parent_order: Order
-    child_orders: List[Order] = field(default_factory=list)
+    child_orders: list[Order] = field(default_factory=list)
     execution_params: ExecutionParams = field(default_factory=ExecutionParams)
     total_executed: float = 0.0
     average_price: float = 0.0
@@ -75,8 +75,8 @@ class ExecutionHandler:
         self.logger = setup_logger(__name__)
         self.order_manager = order_manager
         self.market_data_provider = market_data_provider
-        self.execution_plans: Dict[str, ExecutionPlan] = {}
-        self.active_executions: Dict[str, asyncio.Task] = {}
+        self.execution_plans: dict[str, ExecutionPlan] = {}
+        self.active_executions: dict[str, asyncio.Task] = {}
         self._execution_lock = asyncio.Lock()
         
     async def execute_order(self, order: Order, params: Optional[ExecutionParams] = None) -> ExecutionPlan:
@@ -397,7 +397,7 @@ class ExecutionHandler:
         # For now, fallback to TWAP
         await self._execute_twap(plan)
         
-    async def _get_volume_profile(self, symbol: str) -> List[Tuple[datetime, float]]:
+    async def _get_volume_profile(self, symbol: str) -> list[Tuple[datetime, float]]:
         """Get historical volume profile for VWAP calculation"""
         # TODO: Implement actual volume profile retrieval
         # For now, return mock data
@@ -405,7 +405,7 @@ class ExecutionHandler:
         return [(now + timedelta(minutes=i), 1000.0) for i in range(60)]
         
     def _calculate_vwap_schedule(self, total_quantity: float, 
-                                volume_profile: List[Tuple[datetime, float]]) -> List[Tuple[datetime, float]]:
+                                volume_profile: list[Tuple[datetime, float]]) -> list[Tuple[datetime, float]]:
         """Calculate VWAP execution schedule"""
         total_volume = sum(v for _, v in volume_profile)
         schedule = []

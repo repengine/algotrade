@@ -3,7 +3,7 @@
 
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Optional, Tuple, Any
 from dataclasses import dataclass
 
 import numpy as np
@@ -35,7 +35,7 @@ class RiskMetrics:
 class EnhancedRiskManager:
     """Advanced risk management system with multiple risk measures."""
     
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(self, config: dict[str, Any]) -> None:
         self.config = config
         self.risk_limits = {
             'max_var_95': config.get('max_var_95', 0.02),  # 2% daily VaR
@@ -186,7 +186,7 @@ class EnhancedRiskManager:
     
     def portfolio_optimization(
         self,
-        returns: pd.Series,
+        returns: pd.DataFrame,
         current_weights: pd.Series,
         target_return: Optional[float] = None,
         risk_parity: bool = False
@@ -195,6 +195,9 @@ class EnhancedRiskManager:
         Optimize portfolio weights using mean-variance optimization.
         This is a simplified version - for production use cvxpy or similar.
         """
+        # Calculate expected returns and covariance matrix
+        expected_returns = returns.mean()
+        covariance_matrix = returns.cov()
         n_assets = len(expected_returns)
         
         # Risk aversion parameter
@@ -238,16 +241,17 @@ class EnhancedRiskManager:
     
     def check_risk_compliance(
         self,
-        positions: Optional[Dict] = None,
+        positions: Optional[dict] = None,
         portfolio_value: Optional[float] = None,
         current_drawdown: Optional[float] = None,
-        proposed_trade: Optional[Signal] = None
-    ) -> Tuple[bool, List[str]]:
+        proposed_trade: Optional[Signal] = None,
+        portfolio: Optional[Any] = None
+    ) -> tuple[bool, list[str]]:
         """Check if portfolio (with proposed trade) meets risk limits."""
         violations = []
         
         # Calculate current metrics
-        if hasattr(portfolio, 'get_returns_history'):
+        if portfolio and hasattr(portfolio, 'get_returns_history'):
             returns = portfolio.get_returns_history()
             self.risk_metrics = self.calculate_risk_metrics(returns)
         
@@ -278,16 +282,16 @@ class EnhancedRiskManager:
         # Check proposed trade impact
         if proposed_trade and proposed_trade.direction != 'FLAT':
             # Estimate position VaR
-            position_value = portfolio.current_equity * 0.1  # Assume 10% allocation
-            position_var = self.calculate_position_var(
-                position_value,
-                self.forecast_volatility(returns) if 'returns' in locals() else 0.15
-            )
+            position_value = (portfolio_value or 100000) * 0.1  # Assume 10% allocation
+            # Use simple VaR calculation based on volatility
+            volatility = self.forecast_volatility(self.returns_history) if len(self.returns_history) > 0 else 0.15
+            # 95% VaR approximation: 1.65 * volatility * position_value
+            position_var = 1.65 * (volatility / np.sqrt(252)) * position_value
             
             # Check if adding position would breach VaR limit
-            current_var = abs(self.risk_metrics.value_at_risk * portfolio.current_equity) if self.risk_metrics else 0
+            current_var = abs(self.risk_metrics.value_at_risk * (portfolio_value or 100000)) if self.risk_metrics else 0
             total_var = current_var + position_var
-            portfolio_var_pct = total_var / portfolio.current_equity
+            portfolio_var_pct = total_var / (portfolio_value or 100000)
             
             if portfolio_var_pct > self.risk_limits['max_var_95']:
                 violations.append(
@@ -299,8 +303,8 @@ class EnhancedRiskManager:
     def calculate_stress_scenarios(
         self,
         portfolio,
-        scenarios: Optional[Dict[str, Dict[str, float]]] = None
-    ) -> Dict[str, float]:
+        scenarios: Optional[dict[str, dict[str, float]]] = None
+    ) -> dict[str, float]:
         """Calculate portfolio impact under stress scenarios."""
         if scenarios is None:
             # Default stress scenarios
@@ -341,10 +345,10 @@ class EnhancedRiskManager:
     
     def get_risk_adjusted_sizes(
         self,
-        signals: List[Signal],
+        signals: list[Signal],
         portfolio,
-        market_data: Dict[str, pd.DataFrame]
-    ) -> Dict[str, float]:
+        market_data: dict[str, pd.DataFrame]
+    ) -> dict[str, float]:
         """Calculate risk-adjusted position sizes for signals."""
         risk_sizes = {}
         
@@ -404,7 +408,7 @@ class EnhancedRiskManager:
             elif abs(self.risk_metrics.current_drawdown) < self.risk_limits['max_drawdown'] * 0.5:
                 self.is_risk_on = True
                 
-    def get_risk_report(self) -> Dict[str, Any]:
+    def get_risk_report(self) -> dict[str, Any]:
         """Generate comprehensive risk report."""
         report = {
             'timestamp': datetime.now().isoformat(),
@@ -463,3 +467,79 @@ class EnhancedRiskManager:
         recent_metrics = self.historical_metrics[-lookback:]
         # Return most recent for simplicity
         return recent_metrics[-1] if recent_metrics else None
+    
+    def can_trade(self, strategy: Any) -> bool:
+        """Check if a strategy is allowed to trade based on risk limits."""
+        # Check if risk system is enabled
+        if not self.is_risk_on:
+            return False
+            
+        # Check if we're within drawdown limits
+        if self.risk_metrics and self.risk_metrics.current_drawdown > self.risk_limits['max_drawdown']:
+            logger.warning(f"Trading disabled - drawdown {self.risk_metrics.current_drawdown:.2%} exceeds limit")
+            return False
+            
+        # Check if volatility is acceptable
+        if self.risk_metrics and self.risk_metrics.portfolio_volatility > self.risk_limits['max_portfolio_volatility']:
+            logger.warning(f"Trading disabled - volatility {self.risk_metrics.portfolio_volatility:.2%} exceeds limit")
+            return False
+            
+        return True
+    
+    def size_orders(self, signals: dict[str, Any], portfolio: Any) -> dict[str, Any]:
+        """Size orders based on risk constraints and portfolio state."""
+        sized_orders = {}
+        
+        for strategy_name, strategy_signals in signals.items():
+            if not strategy_signals:
+                continue
+                
+            for symbol, signal in strategy_signals.items():
+                # Calculate position size based on volatility
+                position_size = self._calculate_position_size(signal, portfolio)
+                
+                # Apply risk limits
+                position_size = self._apply_risk_limits(position_size, symbol, portfolio)
+                
+                if position_size > 0:
+                    sized_orders.setdefault(strategy_name, {})[symbol] = {
+                        'signal': signal,
+                        'size': position_size
+                    }
+                    
+        return sized_orders
+    
+    def _calculate_position_size(self, signal: Any, portfolio: Any) -> float:
+        """Calculate position size based on Kelly criterion or fixed sizing."""
+        # Simple fixed position sizing for now
+        base_size = self.config.get('base_position_size', 0.02)  # 2% of portfolio
+        
+        # Adjust for signal strength if available
+        if hasattr(signal, 'strength'):
+            base_size *= signal.strength
+            
+        return base_size
+    
+    def _apply_risk_limits(self, size: float, symbol: str, portfolio: Any) -> float:
+        """Apply risk limits to position size."""
+        # Maximum position size
+        max_size = self.risk_limits['max_position_size']
+        size = min(size, max_size)
+        
+        # Check concentration limits
+        if hasattr(portfolio, 'get_position_weight'):
+            current_weight = portfolio.get_position_weight(symbol)
+            if current_weight + size > max_size:
+                size = max(0, max_size - current_weight)
+                
+        return size
+    
+    def trigger_kill_switch(self) -> None:
+        """Emergency stop - disable all trading."""
+        logger.critical("RISK KILL SWITCH ACTIVATED - All trading disabled")
+        self.is_risk_on = False
+        
+        # Additional emergency actions could be added here:
+        # - Send alerts
+        # - Close all positions
+        # - Save state to disk

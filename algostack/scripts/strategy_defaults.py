@@ -130,6 +130,27 @@ STRATEGY_DEFAULTS = {
         "max_positions": 5,       # Added missing parameter
         "channel_period": 20,     # Added for trend following component
         "symbols": ["SPY"]        # Added missing parameter
+    },
+    
+    "MeanReversionIntraday": {
+        # Required parameters
+        "symbols": ["SPY", "QQQ", "IWM"],
+        "lookback_period": 15,
+        "zscore_threshold": 1.5,
+        "exit_zscore": 0.0,
+        "rsi_period": 3,
+        "rsi_oversold": 25.0,
+        "rsi_overbought": 75.0,
+        # Optional parameters
+        "atr_period": 14,
+        "stop_loss_atr": 2.5,
+        "position_size": 0.95,
+        "max_positions": 1,
+        "min_volume": 1000000,
+        "time_exit_bars": 100,
+        "market_hours_only": True,
+        "avoid_first_30min": True,
+        "avoid_last_30min": True
     }
 }
 

@@ -11,7 +11,7 @@ This module implements:
 
 import numpy as np
 import pandas as pd
-from typing import Optional, Any, Callable
+from typing import Optional, Any, Callable, Dict, List
 from datetime import datetime
 from dataclasses import dataclass
 from scipy import stats
@@ -33,7 +33,7 @@ class TransactionCosts:
 class TransactionCostModel:
     """Realistic transaction cost modeling."""
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         # Commission settings
         self.commission_per_share = config.get('commission_per_share', 0.005)
         self.min_commission = config.get('min_commission', 1.0)
@@ -146,7 +146,7 @@ class DataSplitter:
         self.oos_ratio = oos_ratio
         self.embargo_days = 63  # 3-month embargo for some methods
         
-    def split(self, data: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def split(self, data: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Split data into in-sample and out-of-sample sets."""
         
         if self.method == 'sequential':
@@ -161,12 +161,12 @@ class DataSplitter:
         else:
             raise ValueError(f"Unknown split method: {self.method}")
             
-    def _sequential_split(self, data: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def _sequential_split(self, data: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Simple sequential split - last X% for OOS."""
         split_idx = int(len(data) * (1 - self.oos_ratio))
         return data.iloc[:split_idx], data.iloc[split_idx:]
     
-    def _embargo_split(self, data: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def _embargo_split(self, data: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Split with embargo period to prevent lookahead bias."""
         split_idx = int(len(data) * (1 - self.oos_ratio))
         embargo_start = max(0, split_idx - self.embargo_days)
@@ -184,7 +184,7 @@ class DataSplitter:
         for train_idx, test_idx in tscv.split(data):
             yield data.iloc[train_idx], data.iloc[test_idx]
     
-    def get_all_splits(self, data: pd.DataFrame) -> List[Tuple[pd.DataFrame, pd.DataFrame]]:
+    def get_all_splits(self, data: pd.DataFrame) -> list[tuple[pd.DataFrame, pd.DataFrame]]:
         """Get all splits for methods that support multiple splits."""
         if self.method == 'purged_kfold':
             return list(self._purged_kfold_split(data))
@@ -212,7 +212,7 @@ class WalkForwardAnalyzer:
     def run_analysis(self,
                     strategy_class: type,
                     data: pd.DataFrame,
-                    param_grid: Dict[str, List[Any]],
+                    param_grid: dict[str, list[Any]],
                     backtest_func: Callable,
                     cost_model: Optional[TransactionCostModel] = None) -> pd.DataFrame:
         """Run walk-forward analysis."""
@@ -308,9 +308,9 @@ class WalkForwardAnalyzer:
     def _optimize_parameters(self,
                            strategy_class: type,
                            data: pd.DataFrame,
-                           param_grid: Dict[str, List[Any]],
+                           param_grid: dict[str, list[Any]],
                            backtest_func: Callable,
-                           cost_model: Optional[TransactionCostModel]) -> Dict[str, Any]:
+                           cost_model: Optional[TransactionCostModel]) -> dict[str, Any]:
         """Find optimal parameters for a given window."""
         
         # If no parameters to optimize, return empty dict
@@ -375,8 +375,8 @@ class MonteCarloValidator:
         self.confidence_level = confidence_level
         
     def validate_strategy(self,
-                         strategy_results: Dict[str, Any],
-                         benchmark_returns: Optional[pd.Series] = None) -> Dict[str, Any]:
+                         strategy_results: dict[str, Any],
+                         benchmark_returns: Optional[pd.Series] = None) -> dict[str, Any]:
         """Validate strategy results using Monte Carlo simulation."""
         
         actual_sharpe = strategy_results.get('sharpe_ratio', 0)
@@ -416,7 +416,7 @@ class MonteCarloValidator:
         
         return validation_results
     
-    def _simulate_random_entries(self, returns: pd.Series) -> List[float]:
+    def _simulate_random_entries(self, returns: pd.Series) -> list[float]:
         """Simulate random entry/exit points."""
         random_sharpes = []
         
@@ -433,7 +433,7 @@ class MonteCarloValidator:
                 
         return random_sharpes
     
-    def _bootstrap_confidence_interval(self, returns: pd.Series) -> Tuple[float, float]:
+    def _bootstrap_confidence_interval(self, returns: pd.Series) -> tuple[float, float]:
         """Calculate bootstrap confidence intervals for Sharpe ratio."""
         bootstrap_sharpes = []
         
@@ -486,7 +486,7 @@ class MonteCarloValidator:
     
     def _compare_to_benchmark(self, 
                              strategy_returns: pd.Series, 
-                             benchmark_returns: pd.Series) -> Dict[str, Any]:
+                             benchmark_returns: pd.Series) -> dict[str, Any]:
         """Compare strategy to benchmark using various metrics."""
         
         # Align series
@@ -524,7 +524,7 @@ class RegimeAnalyzer:
     def __init__(self, regime_method: str = 'volatility'):
         self.regime_method = regime_method
         
-    def identify_regimes(self, data: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+    def identify_regimes(self, data: pd.DataFrame) -> dict[str, pd.DataFrame]:
         """Identify different market regimes in the data."""
         
         if self.regime_method == 'volatility':
@@ -536,7 +536,7 @@ class RegimeAnalyzer:
         else:
             raise ValueError(f"Unknown regime method: {self.regime_method}")
     
-    def _volatility_regimes(self, data: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+    def _volatility_regimes(self, data: pd.DataFrame) -> dict[str, pd.DataFrame]:
         """Split data by volatility regimes."""
         
         # Handle both uppercase and lowercase column names
@@ -558,7 +558,7 @@ class RegimeAnalyzer:
         
         return regimes
     
-    def _trend_regimes(self, data: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+    def _trend_regimes(self, data: pd.DataFrame) -> dict[str, pd.DataFrame]:
         """Split data by trend regimes."""
         
         # Handle both uppercase and lowercase column names
@@ -580,7 +580,7 @@ class RegimeAnalyzer:
         
         return regimes
     
-    def _combined_regimes(self, data: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+    def _combined_regimes(self, data: pd.DataFrame) -> dict[str, pd.DataFrame]:
         """Identify combined volatility and trend regimes."""
         vol_regimes = self._volatility_regimes(data)
         trend_regimes = self._trend_regimes(data)
@@ -610,7 +610,7 @@ class RegimeAnalyzer:
     def analyze_regime_performance(self,
                                  strategy,
                                  data: pd.DataFrame,
-                                 backtest_func: Callable) -> Dict[str, Any]:
+                                 backtest_func: Callable) -> dict[str, Any]:
         """Analyze strategy performance across regimes."""
         
         # Identify regimes
@@ -651,7 +651,7 @@ class RegimeAnalyzer:
         }
 
 
-def create_backtest_report(results: Dict[str, Any]) -> str:
+def create_backtest_report(results: dict[str, Any]) -> str:
     """Generate a comprehensive backtest report."""
     
     report = []

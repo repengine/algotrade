@@ -299,6 +299,15 @@ def get_optimization_ranges(strategy_name):
             'exit_zscore': [0.25, 0.5, 0.75],  # 3 values
             # Total: 3×3×3 = 27 combinations
         },
+        'MeanReversionIntraday': {
+            'lookback_period': [10, 15, 20],  # 50-100 minutes
+            'zscore_threshold': [1.0, 1.5, 2.0],  # Entry thresholds
+            'exit_zscore': [-0.5, 0.0, 0.5],  # Exit levels
+            'rsi_period': [2, 3, 5],  # Ultra-short RSI
+            'rsi_oversold': [20, 25, 30],  # Oversold levels
+            'stop_loss_atr': [2.0, 2.5, 3.0],  # Stop loss distance
+            # Total: 3×3×3×3×3×3 = 729 combinations - might need reduction
+        },
         'TrendFollowingMulti': {
             'channel_period': [20, 30, 40],  # Reduced from 5 to 3
             'atr_period': [14, 20],  # Reduced from 3 to 2
@@ -659,21 +668,124 @@ def main():
             help="Rolling window optimization (slow - runs many backtests)"
         )
     
-    # Parameter configuration (simplified for demo)
+    # Parameter configuration - show all relevant parameters for each strategy
     st.sidebar.subheader("Strategy Parameters")
     default_params = strategy_manager.get_strategy_parameters(selected_strategy_name)
     user_params = {'symbol': symbol}
     
-    # Show only key parameters
-    key_params = ['lookback_period', 'position_size', 'stop_loss_pct']
+    # Define key parameters for each strategy type
+    strategy_key_params = {
+        'MeanReversionIntraday': [
+            'lookback_period', 'zscore_threshold', 'exit_zscore', 
+            'rsi_period', 'rsi_oversold', 'stop_loss_atr', 'position_size'
+        ],
+        'MeanReversionEquity': [
+            'lookback_period', 'zscore_threshold', 'exit_zscore',
+            'rsi_period', 'rsi_oversold', 'atr_band_mult', 'stop_loss_atr'
+        ],
+        'TrendFollowingMulti': [
+            'channel_period', 'atr_period', 'adx_threshold',
+            'stop_multiplier', 'position_size'
+        ],
+        'IntradayOrb': [
+            'opening_range_minutes', 'breakout_threshold', 
+            'stop_loss_percent', 'max_trades_per_day'
+        ],
+        'OvernightDrift': [
+            'lookback_days', 'min_edge', 'min_win_rate',
+            'momentum_period', 'position_size'
+        ],
+        'HybridRegime': [
+            'regime_window', 'regime_threshold', 'trend_weight',
+            'zscore_threshold', 'exit_zscore'
+        ],
+        'PairsStatArb': [
+            'zscore_entry', 'zscore_exit', 'lookback_window',
+            'correlation_threshold', 'max_pairs'
+        ]
+    }
+    
+    # Get parameters for current strategy or use defaults
+    key_params = strategy_key_params.get(selected_strategy_name, 
+                                         ['lookback_period', 'position_size', 'stop_loss_pct'])
+    
+    # Create input widgets for each parameter
     for param in key_params:
         if param in default_params:
-            user_params[param] = st.sidebar.number_input(
-                param.replace('_', ' ').title(),
-                value=default_params[param],
-                format="%.3f" if isinstance(default_params[param], float) else "%d"
-            )
+            param_value = default_params[param]
+            
+            # Create appropriate input widget based on parameter type
+            if isinstance(param_value, bool):
+                user_params[param] = st.sidebar.checkbox(
+                    param.replace('_', ' ').title(),
+                    value=param_value
+                )
+            elif isinstance(param_value, int):
+                # Set appropriate ranges for different parameters
+                min_val = 1
+                max_val = 1000
+                step = 1
+                
+                if 'period' in param:
+                    max_val = 200
+                elif 'threshold' in param:
+                    min_val = 0
+                    max_val = 100
+                elif param == 'max_positions' or param == 'max_pairs':
+                    max_val = 20
+                    
+                user_params[param] = st.sidebar.number_input(
+                    param.replace('_', ' ').title(),
+                    value=param_value,
+                    min_value=min_val,
+                    max_value=max_val,
+                    step=step
+                )
+            elif isinstance(param_value, float):
+                # Set appropriate ranges for float parameters
+                min_val = 0.0
+                max_val = 10.0
+                step = 0.1
+                format_str = "%.3f"
+                
+                if 'zscore' in param:
+                    min_val = -3.0
+                    max_val = 3.0
+                    step = 0.1
+                elif 'position_size' in param:
+                    min_val = 0.1
+                    max_val = 1.0
+                    step = 0.05
+                    format_str = "%.2f"
+                elif 'oversold' in param or 'overbought' in param:
+                    min_val = 0.0
+                    max_val = 100.0
+                    step = 5.0
+                    format_str = "%.1f"
+                elif 'atr' in param or 'multiplier' in param:
+                    min_val = 0.5
+                    max_val = 5.0
+                    step = 0.5
+                    format_str = "%.1f"
+                elif 'threshold' in param:
+                    min_val = 0.0
+                    max_val = 1.0
+                    step = 0.01
+                    format_str = "%.3f"
+                    
+                user_params[param] = st.sidebar.number_input(
+                    param.replace('_', ' ').title(),
+                    value=float(param_value),
+                    min_value=min_val,
+                    max_value=max_val,
+                    step=step,
+                    format=format_str
+                )
     
+    # Add interval selection for certain strategies
+    if selected_strategy_name in ["MeanReversionIntraday", "IntradayOrb"]:
+        st.sidebar.info("📊 This strategy uses intraday data")
+        
     # Initial capital
     initial_capital = st.sidebar.number_input(
         "Initial Capital ($)",
@@ -685,7 +797,18 @@ def main():
     # Run enhanced backtest
     if st.sidebar.button("🚀 Run Enhanced Backtest", type="primary"):
         with st.spinner("Loading data..."):
-            data = data_manager.fetch_data(symbol, period, "1d", data_source)
+            # Determine interval based on strategy type
+            if selected_strategy_name == "MeanReversionIntraday":
+                # Use 5-minute data for intraday strategy
+                interval = "5m"
+                # Adjust period for intraday - max 60 days for 5m data
+                if period in ["1y", "2y", "5y", "max"]:
+                    period = "60d"  # yfinance limit for 5m data
+                    st.info("Using last 60 days of 5-minute data (yfinance limit)")
+            else:
+                interval = "1d"
+                
+            data = data_manager.fetch_data(symbol, period, interval, data_source)
             
             if data.empty:
                 st.error(f"No data available for {symbol}")

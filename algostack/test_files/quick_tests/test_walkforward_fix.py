@@ -9,7 +9,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from pandas_indicators import create_talib_compatible_module
 sys.modules['talib'] = create_talib_compatible_module()
 
-from dashboard_enhanced import get_optimization_ranges
+from algostack.dashboard import get_optimization_ranges
 
 # Test all strategies have reasonable parameter combinations
 strategies = [

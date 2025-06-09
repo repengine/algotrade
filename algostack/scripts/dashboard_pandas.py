@@ -17,7 +17,7 @@ import inspect
 import warnings
 from pathlib import Path
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Any, Optional
 from unittest.mock import patch
 
 warnings.filterwarnings('ignore')
@@ -232,7 +232,7 @@ class PandasStrategyManager:
         self.strategies = self._discover_strategies()
         self.converter = DataFormatConverter()
     
-    def _discover_strategies(self) -> Dict[str, type]:
+    def _discover_strategies(self) -> dict[str, type]:
         """Discover all strategy classes in the strategies folder."""
         strategies = {}
         strategies_dir = Path(__file__).parent / 'strategies'
@@ -275,13 +275,13 @@ class PandasStrategyManager:
         formatted = re.sub(r'(?<!^)(?=[A-Z])', ' ', class_name)
         return formatted
     
-    def get_strategy_parameters(self, strategy_class_name: str) -> Dict[str, Any]:
+    def get_strategy_parameters(self, strategy_class_name: str) -> dict[str, Any]:
         """Get all parameters for a strategy with proper defaults."""
         return get_strategy_defaults(strategy_class_name)
     
     def run_backtest(self, strategy_class: type, strategy_name: str,
-                    user_params: Dict[str, Any], data: pd.DataFrame, 
-                    initial_capital: float = 100000) -> Dict[str, Any]:
+                    user_params: dict[str, Any], data: pd.DataFrame, 
+                    initial_capital: float = 100000) -> dict[str, Any]:
         """Run a complete backtest with pandas indicators."""
         try:
             print(f"\n🔍 Running backtest for {strategy_name}")
@@ -562,7 +562,7 @@ class PandasStrategyManager:
             }
 
 
-def run_monte_carlo_simulation(trades_df: pd.DataFrame, initial_capital: float, n_simulations: int = 1000) -> Dict[str, Any]:
+def run_monte_carlo_simulation(trades_df: pd.DataFrame, initial_capital: float, n_simulations: int = 1000) -> dict[str, Any]:
     """Run Monte Carlo simulation on trade results."""
     if trades_df.empty:
         return {}
@@ -640,7 +640,7 @@ def detect_market_regimes(data: pd.DataFrame, lookback: int = 20) -> pd.DataFram
 
 def run_walk_forward_analysis(strategy_manager, strategy_class, strategy_name, user_params, 
                              data: pd.DataFrame, initial_capital: float, 
-                             n_windows: int = 5, in_sample_ratio: float = 0.7) -> Dict[str, Any]:
+                             n_windows: int = 5, in_sample_ratio: float = 0.7) -> dict[str, Any]:
     """Run walk-forward analysis."""
     total_bars = len(data)
     window_size = total_bars // n_windows
@@ -714,7 +714,7 @@ def run_walk_forward_analysis(strategy_manager, strategy_class, strategy_name, u
     }
 
 
-def create_performance_chart(results: Dict[str, Any], data: pd.DataFrame, initial_capital: float = 100000) -> go.Figure:
+def create_performance_chart(results: dict[str, Any], data: pd.DataFrame, initial_capital: float = 100000) -> go.Figure:
     """Create performance visualization with buy-and-hold comparison."""
     if 'equity_curve' not in results or results['equity_curve'].empty:
         fig = go.Figure()
@@ -725,15 +725,31 @@ def create_performance_chart(results: Dict[str, Any], data: pd.DataFrame, initia
         )
         return fig
     
-    # Create subplots
-    fig = make_subplots(
-        rows=2, cols=1,
-        shared_xaxes=True,
-        vertical_spacing=0.1,
-        row_heights=[0.7, 0.3],
-        subplot_titles=('Portfolio vs Buy & Hold', 'Drawdown %'),
-        specs=[[{"secondary_y": True}], [{"secondary_y": False}]]
-    )
+    # Determine if this is intraday data
+    is_intraday = False
+    if len(data) > 1:
+        time_diff = data.index[1] - data.index[0]
+        is_intraday = time_diff.total_seconds() < 3600  # Less than 1 hour
+    
+    # Create subplots - add price chart for intraday
+    if is_intraday:
+        fig = make_subplots(
+            rows=3, cols=1,
+            shared_xaxes=True,
+            vertical_spacing=0.05,
+            row_heights=[0.4, 0.3, 0.3],
+            subplot_titles=('Price & Signals', 'Portfolio vs Buy & Hold', 'Drawdown %'),
+            specs=[[{"secondary_y": False}], [{"secondary_y": True}], [{"secondary_y": False}]]
+        )
+    else:
+        fig = make_subplots(
+            rows=2, cols=1,
+            shared_xaxes=True,
+            vertical_spacing=0.1,
+            row_heights=[0.7, 0.3],
+            subplot_titles=('Portfolio vs Buy & Hold', 'Drawdown %'),
+            specs=[[{"secondary_y": True}], [{"secondary_y": False}]]
+        )
     
     # Equity curve
     equity_curve = results['equity_curve']
@@ -1290,12 +1306,70 @@ def main():
                         )
                         st.plotly_chart(fig_regime, use_container_width=True)
                     
-                    # Performance by regime
-                    if 'equity_curve' in results and not results['equity_curve'].empty:
-                        st.write("**Performance by Regime:**")
-                        # This would require more complex analysis to properly attribute
-                        # performance to different regimes
-                        st.info("Detailed regime performance analysis would require trade-by-trade attribution")
+                    # Performance by regime - Trade Attribution
+                    if 'trades' in results and not results['trades'].empty and len(results['trades']) > 0:
+                        st.write("**Performance by Market Regime:**")
+                        
+                        # Attribute each trade to its regime
+                        trades_df = results['trades'].copy()
+                        regime_performance = []
+                        
+                        for _, trade in trades_df.iterrows():
+                            # Find regime at trade entry
+                            entry_time = trade['entry_time']
+                            
+                            # Find closest date in regime data
+                            if entry_time in data_with_regimes.index:
+                                entry_regime = data_with_regimes.loc[entry_time, 'regime']
+                            else:
+                                # Find nearest date
+                                time_diff = abs(data_with_regimes.index - entry_time)
+                                closest_idx = time_diff.argmin()
+                                entry_regime = data_with_regimes.iloc[closest_idx]['regime']
+                            
+                            regime_performance.append({
+                                'regime': entry_regime,
+                                'return': trade['return'] * 100,  # Convert to percentage
+                                'pnl': trade['pnl']
+                            })
+                        
+                        # Aggregate by regime
+                        regime_df = pd.DataFrame(regime_performance)
+                        regime_summary = regime_df.groupby('regime').agg({
+                            'return': ['mean', 'count', 'sum'],
+                            'pnl': 'sum'
+                        }).round(2)
+                        
+                        # Display regime performance table
+                        st.dataframe(regime_summary, use_container_width=True)
+                        
+                        # Bar chart of average returns by regime
+                        fig_regime_perf = go.Figure()
+                        
+                        regimes = regime_summary.index
+                        avg_returns = regime_summary[('return', 'mean')]
+                        trade_counts = regime_summary[('return', 'count')]
+                        
+                        fig_regime_perf.add_trace(go.Bar(
+                            x=regimes,
+                            y=avg_returns,
+                            text=[f"{ret:.2f}%<br>({cnt} trades)" for ret, cnt in zip(avg_returns, trade_counts)],
+                            textposition='auto',
+                            name='Avg Return per Trade'
+                        ))
+                        
+                        fig_regime_perf.update_layout(
+                            title="Average Trade Return by Market Regime",
+                            xaxis_title="Market Regime",
+                            yaxis_title="Average Return (%)",
+                            height=400
+                        )
+                        
+                        fig_regime_perf.add_hline(y=0, line_dash="dash", line_color="gray")
+                        st.plotly_chart(fig_regime_perf, use_container_width=True)
+                        
+                    else:
+                        st.info("No trades to analyze by regime. Try adjusting strategy parameters to generate more trades.")
             
             # Walk-Forward Analysis
             if enable_walk_forward:

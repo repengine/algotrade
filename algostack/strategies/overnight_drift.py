@@ -3,9 +3,15 @@
 
 import pandas as pd
 import numpy as np
-from typing import List, Optional, Tuple, Dict, Any
+from typing import Optional, Tuple, Any
 from datetime import datetime, time, timedelta
-import talib
+
+try:
+    import talib
+except ImportError:
+    # Use pandas implementation if talib is not available
+    from pandas_indicators import create_talib_compatible_module
+    talib = create_talib_compatible_module()
 
 from strategies.base import BaseStrategy, Signal, RiskContext
 from utils.validators.strategy_validators import validate_overnight_drift_config
@@ -19,7 +25,7 @@ class OvernightDrift(BaseStrategy):
     Filters: Skip high-risk days (FOMC, earnings, etc.)
     """
     
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(self, config: dict[str, Any]) -> None:
         default_config = {
             'name': 'OvernightDrift',
             'symbols': ['SPY', 'QQQ'],  # Works best with index ETFs
@@ -49,7 +55,7 @@ class OvernightDrift(BaseStrategy):
         self.positions.clear()
         self.event_calendar.clear()
         
-    def load_event_calendar(self, events: Dict[str, List[datetime]]) -> None:
+    def load_event_calendar(self, events: dict[str, list[datetime]]) -> None:
         """Load economic events calendar.
         
         Args:
@@ -268,7 +274,7 @@ class OvernightDrift(BaseStrategy):
         
         return df
     
-    def size(self, signal: Signal, risk_context: RiskContext) -> Tuple[float, float]:
+    def size(self, signal: Signal, risk_context: RiskContext) -> tuple[float, float]:
         """Calculate position size for overnight trades."""
         if signal.direction == 'FLAT':
             return 0.0, 0.0
@@ -331,6 +337,6 @@ class OvernightDrift(BaseStrategy):
         
         return metrics
     
-    def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def validate_config(self, config: dict[str, Any]) -> dict[str, Any]:
         """Validate overnight drift strategy configuration."""
         return validate_overnight_drift_config(config)

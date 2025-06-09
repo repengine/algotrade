@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 class PaperExecutor(BaseExecutor):
     """Paper trading executor for simulation."""
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         """
         Initialize paper executor.
         
@@ -51,8 +51,8 @@ class PaperExecutor(BaseExecutor):
         # Account state
         self.cash = self.initial_capital
         self.buying_power = self.initial_capital
-        self._price_data: Dict[str, float] = {}
-        self._fill_tasks: Dict[str, asyncio.Task] = {}
+        self._price_data: dict[str, float] = {}
+        self._fill_tasks: dict[str, asyncio.Task] = {}
         
     async def connect(self) -> bool:
         """Connect to paper trading (always succeeds)."""
@@ -147,11 +147,11 @@ class PaperExecutor(BaseExecutor):
         """Get order status."""
         return self._orders.get(order_id)
     
-    async def get_positions(self) -> Dict[str, Position]:
+    async def get_positions(self) -> dict[str, Position]:
         """Get all positions."""
         return self._positions.copy()
     
-    async def get_account_info(self) -> Dict[str, Any]:
+    async def get_account_info(self) -> dict[str, Any]:
         """Get account information."""
         # Calculate account values
         positions_value = sum(
@@ -188,7 +188,7 @@ class PaperExecutor(BaseExecutor):
             pos.unrealized_pnl = (price - pos.average_cost) * pos.quantity
             pos.last_updated = datetime.now()
     
-    def update_prices(self, prices: Dict[str, float]) -> None:
+    def update_prices(self, prices: dict[str, float]) -> None:
         """Update multiple prices at once."""
         for symbol, price in prices.items():
             self.update_price(symbol, price)

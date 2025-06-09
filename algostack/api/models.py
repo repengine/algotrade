@@ -53,8 +53,8 @@ class StrategyInfo(BaseModel):
     id: str
     name: str
     status: StrategyStatus
-    symbols: List[str]
-    parameters: Dict[str, Any]
+    symbols: list[str]
+    parameters: dict[str, Any]
     signals_generated: int
     orders_placed: int
     last_signal_time: Optional[datetime]
@@ -111,8 +111,8 @@ class RiskMetrics(BaseModel):
     current_leverage: float
     max_leverage: float
     var_95: float  # Value at Risk
-    position_concentration: Dict[str, float]
-    sector_exposure: Dict[str, float]
+    position_concentration: dict[str, float]
+    sector_exposure: dict[str, float]
     correlation_risk: float
     margin_usage: float
     buying_power: float
@@ -136,7 +136,7 @@ class SignalInfo(BaseModel):
     symbol: str
     direction: int  # 1 for buy, -1 for sell
     strength: float
-    metadata: Dict[str, Any] = {}
+    metadata: dict[str, Any] = {}
 
 
 class TradeInfo(BaseModel):
@@ -201,7 +201,7 @@ class WSMessage(BaseModel):
 class WSSubscription(BaseModel):
     """WebSocket subscription request."""
     action: str = Field(..., regex="^(subscribe|unsubscribe)$")
-    channels: List[str]  # positions, orders, signals, alerts, metrics
+    channels: list[str]  # positions, orders, signals, alerts, metrics
 
 
 # Dashboard Configuration
@@ -209,7 +209,7 @@ class WSSubscription(BaseModel):
 class DashboardConfig(BaseModel):
     """Dashboard configuration."""
     refresh_interval: int = 1000  # milliseconds
-    chart_periods: List[str] = ["1D", "1W", "1M", "3M", "1Y"]
-    visible_strategies: List[str] = []
-    alert_filters: List[str] = []
+    chart_periods: list[str] = ["1D", "1W", "1M", "3M", "1Y"]
+    visible_strategies: list[str] = []
+    alert_filters: list[str] = []
     theme: str = "dark"
