@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Test yfinance data fetching"""
 
-import yfinance as yf
 from datetime import datetime, timedelta
+
+import yfinance as yf
 
 # Test fetching SPY data
 symbol = "SPY"

@@ -2,11 +2,10 @@
 """Monitor paper trading performance."""
 
 import json
-import pandas as pd
 from datetime import datetime
 
 # Load config
-with open('dashboard_config.json', 'r') as f:
+with open("dashboard_config.json") as f:
     config = json.load(f)
 
 print(f"Monitoring strategies: {list(config.keys())}")

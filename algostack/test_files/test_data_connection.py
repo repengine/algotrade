@@ -17,10 +17,7 @@ def test_yfinance():
     try:
         handler = DataHandler(["yfinance"])
         df = handler.get_historical(
-            "SPY",
-            datetime.now() - timedelta(days=30),
-            datetime.now(),
-            interval="1d"
+            "SPY", datetime.now() - timedelta(days=30), datetime.now(), interval="1d"
         )
         print(f"✓ Yahoo Finance: Retrieved {len(df)} days of SPY data")
         print(f"  Latest close: ${df['close'].iloc[-1]:.2f}")
@@ -35,16 +32,13 @@ def test_alphavantage():
     print("\nTesting Alpha Vantage (Premium)...")
     try:
         handler = DataHandler(["alphavantage"], premium_av=True)
-        
+
         if "alphavantage" not in handler.adapters:
             print("✗ Alpha Vantage: No API key found")
             return False
-            
+
         df = handler.get_historical(
-            "SPY",
-            datetime.now() - timedelta(days=30),
-            datetime.now(),
-            interval="1d"
+            "SPY", datetime.now() - timedelta(days=30), datetime.now(), interval="1d"
         )
         print(f"✓ Alpha Vantage: Retrieved {len(df)} days of SPY data")
         print(f"  Latest close: ${df['close'].iloc[-1]:.2f}")
@@ -58,16 +52,16 @@ def test_alphavantage():
 def main():
     """Run all tests."""
     print("AlgoStack Data Connection Test")
-    print("="*40)
-    
+    print("=" * 40)
+
     yf_ok = test_yfinance()
     av_ok = test_alphavantage()
-    
-    print("\n" + "="*40)
+
+    print("\n" + "=" * 40)
     print("Summary:")
     print(f"  Yahoo Finance: {'✓ OK' if yf_ok else '✗ Failed'}")
     print(f"  Alpha Vantage: {'✓ OK' if av_ok else '✗ Failed'}")
-    
+
     if yf_ok or av_ok:
         print("\nYou can run backtests with:")
         if yf_ok:

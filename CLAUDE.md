@@ -8,6 +8,7 @@
    - Use Glob to find similar filenames
    - Use Grep to search for similar functionality
    - Read existing modules to understand current implementations
+   - Use Context7 MCP server to search for up-to-date library information. Remember, you were trained on old data, so you need to find new data first.
 
 2. **EXTEND, DON'T DUPLICATE**: 
    - Prefer modifying existing code over creating new files
@@ -33,16 +34,4 @@
    - [ ] Confirmed this is genuinely new functionality
    - [ ] Got explicit approval from user
 
-## Example Workflow
-
-```bash
-# WRONG: Creating new optimization module
-create optimize_strategies_new.py  # NO!
-
-# RIGHT: Check existing first
-grep -r "optimize" .
-glob "**/*optim*.py"
-read core/optimization.py
-# Then extend existing module
-```
 **Remember**: The codebase is already feature-rich. Your job is to fix, refine, and integrate - not to recreate what already exists.

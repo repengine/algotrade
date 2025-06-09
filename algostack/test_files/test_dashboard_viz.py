@@ -3,14 +3,14 @@
 Test script to verify dashboard visualization fixes
 """
 
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from datetime import datetime, timedelta
 
 # Generate sample data
-dates = pd.date_range(start='2023-01-01', end='2023-12-31', freq='D')
+dates = pd.date_range(start="2023-01-01", end="2023-12-31", freq="D")
 price_start = 100
 prices = price_start + np.cumsum(np.random.randn(len(dates)) * 2)
 
@@ -20,25 +20,23 @@ cumulative_returns = (1 + strategy_returns).cumprod()
 
 # Create figure with proper secondary y-axis configuration
 fig = make_subplots(
-    rows=2, cols=1,
+    rows=2,
+    cols=1,
     shared_xaxes=True,
     vertical_spacing=0.1,
-    subplot_titles=('Price & Strategy Performance', 'Position'),
+    subplot_titles=("Price & Strategy Performance", "Position"),
     row_heights=[0.7, 0.3],
-    specs=[[{"secondary_y": True}], [{"secondary_y": False}]]
+    specs=[[{"secondary_y": True}], [{"secondary_y": False}]],
 )
 
 # Plot price on primary y-axis
 fig.add_trace(
     go.Scatter(
-        x=dates,
-        y=prices,
-        mode='lines',
-        name='Price',
-        line=dict(color='black', width=2)
+        x=dates, y=prices, mode="lines", name="Price", line={"color": "black", "width": 2}
     ),
-    row=1, col=1,
-    secondary_y=False
+    row=1,
+    col=1,
+    secondary_y=False,
 )
 
 # Plot strategy returns on secondary y-axis
@@ -47,12 +45,13 @@ fig.add_trace(
     go.Scatter(
         x=dates,
         y=strategy_pct,
-        mode='lines',
-        name='Strategy Returns',
-        line=dict(color='blue', width=2)
+        mode="lines",
+        name="Strategy Returns",
+        line={"color": "blue", "width": 2},
     ),
-    row=1, col=1,
-    secondary_y=True
+    row=1,
+    col=1,
+    secondary_y=True,
 )
 
 # Add some trade markers
@@ -62,17 +61,18 @@ for idx in trade_indices:
         go.Scatter(
             x=[dates[idx]],
             y=[prices[idx]],
-            mode='markers',
-            marker=dict(
-                symbol='triangle-up',
-                size=12,
-                color='green',
-                line=dict(width=2, color='white')
-            ),
-            showlegend=False
+            mode="markers",
+            marker={
+                "symbol": "triangle-up",
+                "size": 12,
+                "color": "green",
+                "line": {"width": 2, "color": "white"},
+            },
+            showlegend=False,
         ),
-        row=1, col=1,
-        secondary_y=False
+        row=1,
+        col=1,
+        secondary_y=False,
     )
 
 # Update axes
@@ -80,9 +80,7 @@ fig.update_yaxes(title_text="Price ($)", row=1, col=1, secondary_y=False)
 fig.update_yaxes(title_text="Returns (%)", row=1, col=1, secondary_y=True)
 
 fig.update_layout(
-    height=600,
-    title="Test: Dual Y-Axis Visualization",
-    hovermode='x unified'
+    height=600, title="Test: Dual Y-Axis Visualization", hovermode="x unified"
 )
 
 # Print ranges to verify

@@ -24,7 +24,10 @@ tests = [
     ("BBANDS (Bollinger Bands)", lambda: talib.BBANDS(close, timeperiod=20)),
     ("MACD", lambda: talib.MACD(close)),
     ("ATR (Average True Range)", lambda: talib.ATR(high, low, close, timeperiod=14)),
-    ("ADX (Average Directional Index)", lambda: talib.ADX(high, low, close, timeperiod=14)),
+    (
+        "ADX (Average Directional Index)",
+        lambda: talib.ADX(high, low, close, timeperiod=14),
+    ),
     ("STOCH (Stochastic)", lambda: talib.STOCH(high, low, close)),
 ]
 

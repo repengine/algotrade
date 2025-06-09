@@ -4,21 +4,24 @@ Simple HTTP server to test WSL networking
 """
 
 import http.server
-import socketserver
 import socket
+import socketserver
+
 
 def get_ip():
     hostname = socket.gethostname()
     local_ip = socket.gethostbyname(hostname)
     return local_ip
 
+
 PORT = 8000
+
 
 class MyHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
-        if self.path == '/':
+        if self.path == "/":
             self.send_response(200)
-            self.send_header('Content-type', 'text/html')
+            self.send_header("Content-type", "text/html")
             self.end_headers()
             html = """
             <html>
@@ -36,13 +39,14 @@ class MyHandler(http.server.SimpleHTTPRequestHandler):
         else:
             super().do_GET()
 
+
 if __name__ == "__main__":
     with socketserver.TCPServer(("0.0.0.0", PORT), MyHandler) as httpd:
         ip = get_ip()
         print(f"🧪 Test server running on port {PORT}")
-        print(f"\nTry these URLs:")
+        print("\nTry these URLs:")
         print(f"  • http://localhost:{PORT}")
         print(f"  • http://127.0.0.1:{PORT}")
         print(f"  • http://{ip}:{PORT}")
-        print(f"\nPress Ctrl+C to stop")
+        print("\nPress Ctrl+C to stop")
         httpd.serve_forever()

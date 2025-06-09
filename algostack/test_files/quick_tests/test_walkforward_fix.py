@@ -1,24 +1,26 @@
 #!/usr/bin/env python3
 """Test walk-forward optimization fix."""
 
-import sys
 import os
+import sys
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Mock talib before imports
 from pandas_indicators import create_talib_compatible_module
-sys.modules['talib'] = create_talib_compatible_module()
+
+sys.modules["talib"] = create_talib_compatible_module()
 
 from algostack.dashboard import get_optimization_ranges
 
 # Test all strategies have reasonable parameter combinations
 strategies = [
-    'MeanReversionEquity',
-    'TrendFollowingMulti', 
-    'HybridRegime',
-    'IntradayOrb',
-    'OvernightDrift',
-    'PairsStatArb'
+    "MeanReversionEquity",
+    "TrendFollowingMulti",
+    "HybridRegime",
+    "IntradayOrb",
+    "OvernightDrift",
+    "PairsStatArb",
 ]
 
 print("Testing parameter combinations for walk-forward optimization:\n")
@@ -28,7 +30,7 @@ for strategy in strategies:
     ranges = get_optimization_ranges(strategy)
     if ranges:
         total = 1
-        for param, values in ranges.items():
+        for _param, values in ranges.items():
             total *= len(values)
         total_all += total
         print(f"{strategy}:")

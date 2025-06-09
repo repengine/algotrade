@@ -1,0 +1,159 @@
+
+==================================== ERRORS ====================================
+__________________ ERROR collecting tests/test_backtesting.py __________________
+tests/test_backtesting.py:9: in <module>
+    from backtests.run_backtests import BacktestEngine, AlgoStackStrategy
+backtests/run_backtests.py:15: in <module>
+    from core.data_handler import DataHandler
+core/data_handler.py:18: in <module>
+    class DataHandler:
+core/data_handler.py:21: in DataHandler
+    def __init__(self, providers: list[str], cache_dir: str = "data/cache", api_keys: Optional[Dict[str, str]] = None, premium_av: bool = False) -> None:
+                                                                                               ^^^^
+E   NameError: name 'Dict' is not defined
+_________________ ERROR collecting tests/test_data_handler.py __________________
+tests/test_data_handler.py:9: in <module>
+    from core.data_handler import DataHandler
+core/data_handler.py:18: in <module>
+    class DataHandler:
+core/data_handler.py:21: in DataHandler
+    def __init__(self, providers: list[str], cache_dir: str = "data/cache", api_keys: Optional[Dict[str, str]] = None, premium_av: bool = False) -> None:
+                                                                                               ^^^^
+E   NameError: name 'Dict' is not defined
+____________ ERROR collecting tests/test_enhanced_order_manager.py _____________
+ImportError while importing test module '/home/nate/projects/algotrade/algostack/tests/test_enhanced_order_manager.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_enhanced_order_manager.py:10: in <module>
+    from algostack.adapters.paper_executor import PaperExecutor
+E   ModuleNotFoundError: No module named 'algostack'
+___________________ ERROR collecting tests/test_executor.py ____________________
+ImportError while importing test module '/home/nate/projects/algotrade/algostack/tests/test_executor.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_executor.py:11: in <module>
+    from algostack.adapters.paper_executor import PaperExecutor
+E   ModuleNotFoundError: No module named 'algostack'
+_________________ ERROR collecting tests/test_ibkr_adapter.py __________________
+ImportError while importing test module '/home/nate/projects/algotrade/algostack/tests/test_ibkr_adapter.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_ibkr_adapter.py:13: in <module>
+    from algostack.adapters.ibkr_adapter import (
+E   ModuleNotFoundError: No module named 'algostack'
+__________________ ERROR collecting tests/test_integration.py __________________
+tests/test_integration.py:10: in <module>
+    from core.data_handler import DataHandler
+core/data_handler.py:18: in <module>
+    class DataHandler:
+core/data_handler.py:21: in DataHandler
+    def __init__(self, providers: list[str], cache_dir: str = "data/cache", api_keys: Optional[Dict[str, str]] = None, premium_av: bool = False) -> None:
+                                                                                               ^^^^
+E   NameError: name 'Dict' is not defined
+__________________ ERROR collecting tests/test_live_engine.py __________________
+ImportError while importing test module '/home/nate/projects/algotrade/algostack/tests/test_live_engine.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_live_engine.py:10: in <module>
+    from algostack.core.live_engine import LiveTradingEngine, TradingMode
+E   ModuleNotFoundError: No module named 'algostack'
+_______________ ERROR collecting tests/test_pandas_indicators.py _______________
+ImportError while importing test module '/home/nate/projects/algotrade/algostack/tests/test_pandas_indicators.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_pandas_indicators.py:6: in <module>
+    from pandas_indicators import PandasIndicators, create_talib_compatible_module
+E   ModuleNotFoundError: No module named 'pandas_indicators'
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.12.3-final-0 ________________
+
+Name                                      Stmts   Miss  Cover   Missing
+-----------------------------------------------------------------------
+adapters/__init__.py                          2      2     0%   3-5
+adapters/av_fetcher.py                       89     75    16%   20-27, 37-55, 59-128, 133-178, 182-189
+adapters/ibkr_adapter.py                    434    434     0%   8-855
+adapters/ibkr_executor.py                   210    210     0%   8-462
+adapters/paper_executor.py                  164    164     0%   8-350
+adapters/yf_fetcher.py                       38     38     0%   3-92
+api/__init__.py                               3      3     0%   7-19
+api/app.py                                  273    273     0%   8-639
+api/models.py                               145    145     0%   5-215
+archive/__init__.py                           1      1     0%   3
+archive/strategy_validation_bypass.py        15     15     0%   5-34
+backtests/__init__.py                         0      0   100%
+backtests/run_backtests.py                  139    129     7%   16-361
+cli/__init__.py                               0      0   100%
+cli/monitor.py                              189    189     0%   7-327
+config/__init__.py                            0      0   100%
+conftest.py                                  77     43    44%   19-21, 29-49, 55, 69, 101-130, 137, 164, 195-206, 215-223, 229-233
+core/__init__.py                              0      0   100%
+core/backtest_engine.py                     342    342     0%   12-714
+core/data_handler.py                        127    115     9%   22-205
+core/engine/__init__.py                       5      5     0%   3-8
+core/engine/enhanced_order_manager.py       186    186     0%   8-428
+core/engine/execution_handler.py            235    235     0%   8-445
+core/engine/order_manager.py                175    175     0%   8-338
+core/engine/trading_engine.py               110    110     0%   8-216
+core/executor.py                            122    122     0%   8-278
+core/live_engine.py                         272    272     0%   12-616
+core/metrics.py                             193    193     0%   7-419
+core/optimization.py                        328    328     0%   11-787
+core/portfolio.py                           265    220    17%   48, 53-56, 61-62, 69-95, 99-101, 106-122, 137-164, 168-169, 173-198, 202-269, 274-311, 315-346, 350-390, 403-425, 429-474, 478-522, 526-547
+core/risk.py                                241    199    17%   39-64, 75-125, 140, 155-172, 182-185, 199-240, 251-301, 309-344, 353-391, 396-409, 413-440, 445-454, 458-461, 465-469, 474-487, 491-510, 515-521, 526-535, 539-540
+core/trading_engine_main.py                  49     49     0%   3-84
+dashboard.py                                297    297     0%   13-860
+detailed_analysis.py                         71     71     0%   1-112
+docs/__init__.py                              0      0   100%
+examples/__init__.py                          0      0   100%
+examples/ibkr_example.py                     69     69     0%   12-166
+examples/ibkr_live_example.py                63     63     0%   16-182
+examples/paper_trading_example.py            39     39     0%   8-133
+examples/quick_backtest.py                   35     35     0%   8-101
+examples/websocket_client.py                 96     96     0%   8-147
+final_error_summary.py                       41     41     0%   1-103
+lint_analysis.py                             52     52     0%   1-82
+main.py                                     102    102     0%   4-198
+simple_lint_analysis.py                      49     49     0%   1-86
+strategies/__init__.py                        0      0   100%
+strategies/base.py                           91     53    42%   27-34, 55-61, 103-108, 113-115, 120-124, 128-140, 144-164, 182-194
+strategies/futures_momentum.py               93     93     0%   4-256
+strategies/hybrid_regime.py                 160    160     0%   4-375
+strategies/intraday_orb.py                  110    110     0%   4-354
+strategies/mean_reversion_equity.py          99     82    17%   10-14, 35-54, 58-59, 63-88, 92-184, 188-218, 222-239, 250
+strategies/mean_reversion_intraday.py       128    128     0%   3-311
+strategies/overnight_drift.py               141    141     0%   4-342
+strategies/pairs_stat_arb.py                152    152     0%   4-440
+strategies/trend_following_multi.py         143    143     0%   4-367
+test_files/mock_imports.py                   81     31    62%   10-12, 27-60, 65-66
+utils/__init__.py                             0      0   100%
+utils/constants.py                           47      0   100%
+utils/logging.py                             16     16     0%   3-41
+utils/validators/__init__.py                  0      0   100%
+utils/validators/strategy_validators.py     121     99    18%   30-56, 62-65, 70-71, 76-77, 82-85, 90-93, 98-131, 136-163, 168-194, 199-227, 232-262, 267-294
+-----------------------------------------------------------------------
+TOTAL                                      6725   6394     5%
+=========================== short test summary info ============================
+ERROR tests/test_backtesting.py - NameError: name 'Dict' is not defined
+ERROR tests/test_data_handler.py - NameError: name 'Dict' is not defined
+ERROR tests/test_enhanced_order_manager.py
+ERROR tests/test_executor.py
+ERROR tests/test_ibkr_adapter.py
+ERROR tests/test_integration.py - NameError: name 'Dict' is not defined
+ERROR tests/test_live_engine.py
+ERROR tests/test_pandas_indicators.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 8 errors during collection !!!!!!!!!!!!!!!!!!!!

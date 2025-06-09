@@ -4,13 +4,14 @@ API Models for AlgoStack Monitoring Dashboard.
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
 
 class SystemStatus(str, Enum):
     """System status enumeration."""
+
     OFFLINE = "offline"
     STARTING = "starting"
     RUNNING = "running"
@@ -21,6 +22,7 @@ class SystemStatus(str, Enum):
 
 class StrategyStatus(str, Enum):
     """Strategy status enumeration."""
+
     INACTIVE = "inactive"
     ACTIVE = "active"
     ERROR = "error"
@@ -29,6 +31,7 @@ class StrategyStatus(str, Enum):
 
 class OrderStatus(str, Enum):
     """Order status enumeration."""
+
     PENDING = "pending"
     SUBMITTED = "submitted"
     PARTIALLY_FILLED = "partially_filled"
@@ -39,8 +42,10 @@ class OrderStatus(str, Enum):
 
 # Response Models
 
+
 class SystemInfo(BaseModel):
     """System information response."""
+
     status: SystemStatus
     mode: str
     uptime_seconds: float
@@ -50,6 +55,7 @@ class SystemInfo(BaseModel):
 
 class StrategyInfo(BaseModel):
     """Strategy information."""
+
     id: str
     name: str
     status: StrategyStatus
@@ -62,6 +68,7 @@ class StrategyInfo(BaseModel):
 
 class PositionInfo(BaseModel):
     """Position information."""
+
     symbol: str
     quantity: int
     average_cost: float
@@ -74,6 +81,7 @@ class PositionInfo(BaseModel):
 
 class OrderInfo(BaseModel):
     """Order information."""
+
     order_id: str
     symbol: str
     side: str
@@ -91,6 +99,7 @@ class OrderInfo(BaseModel):
 
 class PerformanceMetrics(BaseModel):
     """Performance metrics."""
+
     total_value: float
     cash: float
     positions_value: float
@@ -108,6 +117,7 @@ class PerformanceMetrics(BaseModel):
 
 class RiskMetrics(BaseModel):
     """Risk metrics."""
+
     current_leverage: float
     max_leverage: float
     var_95: float  # Value at Risk
@@ -120,17 +130,19 @@ class RiskMetrics(BaseModel):
 
 class AlertInfo(BaseModel):
     """Alert information."""
+
     id: str
     timestamp: datetime
     level: str  # info, warning, error, critical
     category: str  # trade, risk, system, data
     message: str
-    details: Optional[Dict[str, Any]]
+    details: Optional[dict[str, Any]]
     acknowledged: bool = False
 
 
 class SignalInfo(BaseModel):
     """Trading signal information."""
+
     timestamp: datetime
     strategy_id: str
     symbol: str
@@ -141,6 +153,7 @@ class SignalInfo(BaseModel):
 
 class TradeInfo(BaseModel):
     """Completed trade information."""
+
     symbol: str
     entry_time: datetime
     exit_time: datetime
@@ -157,15 +170,18 @@ class TradeInfo(BaseModel):
 
 # Request Models
 
+
 class StrategyCommand(BaseModel):
     """Strategy control command."""
+
     action: str = Field(..., regex="^(enable|disable|reset)$")
     strategy_id: str
-    parameters: Optional[Dict[str, Any]] = None
+    parameters: Optional[dict[str, Any]] = None
 
 
 class OrderCommand(BaseModel):
     """Manual order command."""
+
     symbol: str
     side: str = Field(..., regex="^(buy|sell)$")
     quantity: int = Field(..., gt=0)
@@ -177,6 +193,7 @@ class OrderCommand(BaseModel):
 
 class RiskOverride(BaseModel):
     """Risk limit override."""
+
     parameter: str
     value: float
     duration_minutes: Optional[int] = None
@@ -185,14 +202,17 @@ class RiskOverride(BaseModel):
 
 class SystemCommand(BaseModel):
     """System control command."""
+
     action: str = Field(..., regex="^(start|stop|pause|resume|emergency_stop)$")
     confirm: bool = False
 
 
 # WebSocket Messages
 
+
 class WSMessage(BaseModel):
     """WebSocket message base."""
+
     type: str
     timestamp: datetime = Field(default_factory=datetime.now)
     data: Any
@@ -200,14 +220,17 @@ class WSMessage(BaseModel):
 
 class WSSubscription(BaseModel):
     """WebSocket subscription request."""
+
     action: str = Field(..., regex="^(subscribe|unsubscribe)$")
     channels: list[str]  # positions, orders, signals, alerts, metrics
 
 
 # Dashboard Configuration
 
+
 class DashboardConfig(BaseModel):
     """Dashboard configuration."""
+
     refresh_interval: int = 1000  # milliseconds
     chart_periods: list[str] = ["1D", "1W", "1M", "3M", "1Y"]
     visible_strategies: list[str] = []
