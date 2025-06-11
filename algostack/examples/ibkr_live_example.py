@@ -16,8 +16,8 @@ Prerequisites:
 import asyncio
 import logging
 
-from algostack.core.live_engine import LiveTradingEngine, TradingMode
-from algostack.strategies.mean_reversion_equity import MeanReversionEquityStrategy
+from core.live_engine import LiveTradingEngine, TradingMode
+from strategies.mean_reversion_equity import MeanReversionEquityStrategy
 
 
 async def main():

@@ -4,7 +4,7 @@ import logging
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 
 import numpy as np
 import pandas as pd
@@ -19,13 +19,13 @@ class DataHandler:
         self,
         providers: list[str],
         cache_dir: str = "data/cache",
-        api_keys: Optional[Dict[str, str]] = None,
+        api_keys: Optional[dict[str, str]] = None,
         premium_av: bool = False,
     ) -> None:
         self.providers = providers
         self.cache_dir = Path(cache_dir)
-        self.adapters = {}
-        self._cache = {}
+        self.adapters: dict[str, Any] = {}
+        self._cache: dict[str, pd.DataFrame] = {}
         self.api_keys = api_keys or {}
         self.premium_av = premium_av
 
@@ -67,7 +67,8 @@ class DataHandler:
                                         .get("alphavantage", {})
                                         .get("api_key")
                                     )
-                        except:
+                        except Exception as e:
+                            logger.debug(f"Could not load API key from secrets.yaml: {e}")
                             pass
 
                 if not api_key:
@@ -155,7 +156,7 @@ class DataHandler:
         logger.info(f"Fetching {symbol} from {provider}")
         return adapter.fetch_ohlcv(symbol, start, end, interval)
 
-    async def get_latest(self, symbols: Optional[List[str]] = None) -> dict[str, Dict]:
+    async def get_latest(self, symbols: Optional[list[str]] = None) -> dict[str, dict]:
         """Get latest market data for symbols."""
         latest_data = {}
 
@@ -185,8 +186,8 @@ class DataHandler:
         """Add common technical indicators to dataframe."""
         # ATR
         high_low = df["high"] - df["low"]
-        high_close = np.abs(df["high"] - df["close"].shift())
-        low_close = np.abs(df["low"] - df["close"].shift())
+        high_close = (df["high"] - df["close"].shift()).abs()
+        low_close = (df["low"] - df["close"].shift()).abs()
         tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
         df["atr"] = tr.rolling(14).mean()
 

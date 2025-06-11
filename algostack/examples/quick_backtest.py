@@ -11,9 +11,9 @@ import sys
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from algostack.backtests.run_backtests import BacktestEngine
-from algostack.strategies.mean_reversion_equity import MeanReversionEquityStrategy
-from algostack.strategies.trend_following_multi import TrendFollowingMultiStrategy
+from backtests.run_backtests import BacktestEngine
+from strategies.mean_reversion_equity import MeanReversionEquityStrategy
+from strategies.trend_following_multi import TrendFollowingMultiStrategy
 
 
 def backtest_mean_reversion():

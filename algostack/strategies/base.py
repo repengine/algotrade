@@ -195,3 +195,19 @@ class BaseStrategy(ABC):
                 raise ValueError("enabled must be a boolean")
 
         return config
+
+    def generate_signals(self, data: pd.DataFrame) -> list[Signal]:
+        """
+        Generate trading signals from market data.
+        
+        This is a default implementation that can be overridden by subclasses.
+        
+        Args:
+            data: DataFrame with OHLCV data
+            
+        Returns:
+            List of trading signals
+        """
+        # Default implementation returns no signals
+        # Subclasses should override this method
+        return []

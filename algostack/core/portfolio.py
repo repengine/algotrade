@@ -65,7 +65,7 @@ class PortfolioEngine:
         self.current_equity = self.initial_capital
         self.positions: dict[str, Position] = {}  # symbol -> Position
         self.strategy_allocations: dict[str, float] = {}  # strategy -> allocation
-        self.performance_history = []
+        self.performance_history: list[dict[str, Any]] = []
         self.correlation_matrix = pd.DataFrame()
         self.volatility_targets = config.get("volatility_targets", {})
         self.risk_limits = {
@@ -80,13 +80,13 @@ class PortfolioEngine:
         # Risk tracking
         self.peak_equity = self.initial_capital
         self.current_drawdown = 0.0
-        self.daily_pnl = []
+        self.daily_pnl: list[float] = []
         self.is_risk_off = False
-        self.risk_off_until = None
+        self.risk_off_until: Optional[datetime] = None
 
         # Kelly tracking
-        self.strategy_kelly_fractions = {}
-        self.strategy_performance = {}  # Track per-strategy metrics
+        self.strategy_kelly_fractions: dict[str, float] = {}
+        self.strategy_performance: dict[str, dict[str, float]] = {}  # Track per-strategy metrics
 
     def update_market_prices(self, prices: dict[str, float]) -> None:
         """Update current prices for all positions."""
@@ -113,13 +113,13 @@ class PortfolioEngine:
             else 0
         )
 
-        # Position counts
-        long_positions = sum(
-            1 for pos in self.positions.values() if pos.direction == "LONG"
-        )
-        short_positions = sum(
-            1 for pos in self.positions.values() if pos.direction == "SHORT"
-        )
+        # Count positions efficiently in a single pass
+        long_positions = short_positions = 0
+        for pos in self.positions.values():
+            if pos.direction == "LONG":
+                long_positions += 1
+            elif pos.direction == "SHORT":
+                short_positions += 1
 
         return {
             "total_equity": total_value,
@@ -154,8 +154,8 @@ class PortfolioEngine:
         symbols = list(weights.keys())
 
         # Covariance calculation
-        for _i, sym1 in enumerate(symbols):
-            for _j, sym2 in enumerate(symbols):
+        for sym1 in symbols:
+            for sym2 in symbols:
                 if sym1 in returns_data.columns and sym2 in returns_data.columns:
                     cov = returns_data[sym1].cov(returns_data[sym2])
                     portfolio_variance += weights[sym1] * weights[sym2] * cov
@@ -163,7 +163,7 @@ class PortfolioEngine:
         # Annualized volatility
         portfolio_vol = np.sqrt(portfolio_variance * TRADING_DAYS_PER_YEAR)
 
-        return portfolio_vol
+        return float(portfolio_vol)
 
     def update_correlation_matrix(self, returns_data: pd.DataFrame) -> None:
         """Update correlation matrix for portfolio assets."""
@@ -174,36 +174,94 @@ class PortfolioEngine:
         """Check if portfolio is within risk limits."""
         violations = []
 
-        # Check drawdown limit
+        # Check drawdown limit (applies even without positions)
         if self.current_drawdown > self.risk_limits["max_drawdown"]:
             violations.append(
                 f"Drawdown {self.current_drawdown:.1%} exceeds limit {self.risk_limits['max_drawdown']:.1%}"
             )
 
-        # Check position concentration
-        total_value = self.current_equity
-        for symbol, position in self.positions.items():
-            position_weight = position.market_value / total_value
-            if position_weight > self.risk_limits["max_position_size"]:
-                violations.append(
-                    f"{symbol} weight {position_weight:.1%} exceeds limit {self.risk_limits['max_position_size']:.1%}"
-                )
+        # Only check position-related limits if we have positions
+        if self.positions:
+            # Check position concentration
+            violations.extend(self._check_position_concentration())
 
-        # Check correlation limits
-        if not self.correlation_matrix.empty:
-            # Find highly correlated positions
-            for i in range(len(self.correlation_matrix)):
-                for j in range(i + 1, len(self.correlation_matrix)):
-                    corr = self.correlation_matrix.iloc[i, j]
-                    if abs(corr) > self.risk_limits["max_correlation"]:
-                        sym1 = self.correlation_matrix.index[i]
-                        sym2 = self.correlation_matrix.index[j]
-                        if sym1 in self.positions and sym2 in self.positions:
-                            violations.append(
-                                f"{sym1}-{sym2} correlation {corr:.2f} exceeds limit"
-                            )
+            # Check correlation limits
+            violations.extend(self._check_correlation_violations())
 
         return len(violations) == 0, violations
+
+    def _check_position_concentration(self) -> list[str]:
+        """Check position concentration limits."""
+        violations = []
+
+        # Batch calculate all position weights at once
+        if self.current_equity <= 0:
+            if self.positions:
+                violations.append(
+                    "Cannot calculate position concentration: total equity is zero or negative"
+                )
+            return violations
+
+        # Calculate all weights in one pass
+        max_limit = self.risk_limits["max_position_size"]
+
+        for symbol, position in self.positions.items():
+            try:
+                position_weight = float(position.market_value) / self.current_equity
+                if position_weight > max_limit:
+                    violations.append(
+                        f"{symbol} weight {position_weight:.1%} exceeds limit {max_limit:.1%}"
+                    )
+            except (TypeError, ValueError, ZeroDivisionError) as e:
+                logger.warning(f"Error calculating weight for {symbol}: {e}")
+                violations.append(f"Invalid market value for {symbol}")
+
+        return violations
+
+    def _check_correlation_violations(self) -> list[str]:
+        """Check correlation limit violations between positions."""
+        violations = []
+
+        if self.correlation_matrix.empty or len(self.positions) < 2:
+            return violations
+
+        # Get positions that exist in correlation matrix
+        position_symbols = set(self.positions.keys())
+        matrix_symbols = set(self.correlation_matrix.index) & set(self.correlation_matrix.columns)
+        relevant_symbols = list(position_symbols & matrix_symbols)
+
+        if len(relevant_symbols) < 2:
+            return violations
+
+        # Use numpy for efficient correlation checking
+        max_corr = self.risk_limits["max_correlation"]
+
+        try:
+            # Get correlation submatrix for relevant symbols only
+            corr_subset = self.correlation_matrix.loc[relevant_symbols, relevant_symbols]
+
+            # Use numpy operations for efficiency
+            corr_values = corr_subset.values
+            mask = np.abs(corr_values) > max_corr
+
+            # Only check upper triangle (avoid duplicates)
+            mask = np.triu(mask, k=1)
+
+            # Find violations
+            violations_idx = np.where(mask)
+
+            for i, j in zip(violations_idx[0], violations_idx[1]):
+                sym1, sym2 = relevant_symbols[i], relevant_symbols[j]
+                corr = float(corr_values[i, j])
+                violations.append(
+                    f"{sym1}-{sym2} correlation {corr:.2f} exceeds limit {max_corr:.2f}"
+                )
+
+        except Exception as e:
+            logger.error(f"Error checking correlations: {e}")
+            violations.append("Error processing correlation matrix")
+
+        return violations
 
     def allocate_capital(
         self, signals: list[Signal], market_data: dict[str, pd.DataFrame]
@@ -215,7 +273,7 @@ class PortfolioEngine:
         allocations = {}
 
         # Group signals by strategy
-        strategy_signals = {}
+        strategy_signals: dict[str, list[Any]] = {}
         for signal in signals:
             if signal.direction != "FLAT":
                 strategy = signal.strategy_id
@@ -445,7 +503,12 @@ class PortfolioEngine:
             # Kelly formula: f = p - q/b
             # where p = win_rate, q = 1-p, b = avg_win/avg_loss
             b = avg_win / avg_loss
-            kelly = win_rate - (1 - win_rate) / b
+            
+            # Handle edge case where b is 0 (no average win)
+            if b == 0:
+                kelly = 0  # No edge, no allocation
+            else:
+                kelly = win_rate - (1 - win_rate) / b
 
             # Apply half-Kelly for safety
             kelly = max(
@@ -577,7 +640,7 @@ class PortfolioEngine:
         for position in self.positions.values():
             strategy = position.strategy_id
             if strategy not in strategy_exposure:
-                strategy_exposure[strategy] = 0
+                strategy_exposure[strategy] = 0.0
             strategy_exposure[strategy] += position.market_value
 
         # Performance by strategy
@@ -611,3 +674,54 @@ class PortfolioEngine:
                 for symbol, pos in self.positions.items()
             },
         }
+
+    @property
+    def total_value(self) -> float:
+        """Calculate total portfolio value including cash and positions."""
+        positions_value = sum(pos.market_value for pos in self.positions.values())
+        return self.current_equity + positions_value
+
+    @property
+    def cash(self) -> float:
+        """Available cash in the portfolio."""
+        return self.current_equity
+
+    def update_position(self, symbol: str, quantity: float, avg_price: float, current_price: float) -> None:
+        """Update or create a position with current market data."""
+        if symbol in self.positions:
+            # Update existing position
+            position = self.positions[symbol]
+            position.quantity = quantity
+            position.current_price = current_price
+            # Update entry price if quantity changed significantly
+            if abs(position.quantity - quantity) > 0.01:
+                position.entry_price = avg_price
+        else:
+            # Create new position
+            if quantity != 0:
+                self.positions[symbol] = Position(
+                    symbol=symbol,
+                    strategy_id="unknown",
+                    direction="LONG" if quantity > 0 else "SHORT",
+                    quantity=quantity,
+                    entry_price=avg_price,
+                    entry_time=datetime.now(),
+                    current_price=current_price,
+                )
+
+    def calculate_metrics(self) -> dict[str, Any]:
+        """Calculate and return portfolio performance metrics."""
+        return self.calculate_portfolio_metrics()
+
+    def calculate_daily_pnl(self) -> float:
+        """Calculate today's P&L."""
+        # Simple implementation - in production this would track intraday changes
+        total_pnl = sum(pos.unrealized_pnl for pos in self.positions.values())
+        return total_pnl
+
+
+# Aliases for backward compatibility
+Portfolio = PortfolioEngine
+PortfolioMetrics = dict  # Placeholder type alias
+PortfolioState = dict  # Placeholder type alias
+Trade = dict  # Placeholder type alias

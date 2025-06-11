@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
 
-from ...utils.logging import setup_logger
+from utils.logging import setup_logger
 
 
 class EngineState(Enum):
@@ -60,12 +60,12 @@ class TradingEngine:
         self.config = config or EngineConfig()
         self.logger = setup_logger(__name__, self.config.log_level)
         self.state = EngineState.STOPPED
-        self.strategies = {}
-        self.active_orders = {}
+        self.strategies: dict[str, Any] = {}
+        self.active_orders: dict[str, Any] = {}
         self.position_manager = None
         self.risk_manager = None
         self.data_manager = None
-        self._main_loop_task = None
+        self._main_loop_task: Optional[asyncio.Task[None]] = None
 
     async def start(self) -> None:
         """Start the trading engine"""

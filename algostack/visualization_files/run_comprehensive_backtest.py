@@ -12,6 +12,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Dict
 
 import pandas as pd
 import yaml
@@ -19,16 +20,16 @@ import yaml
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from algostack.backtests.run_backtests import (
+from backtests.run_backtests import (
     BacktestEngine,
     run_walk_forward_optimization,
 )
-from algostack.strategies.hybrid_regime import HybridRegimeStrategy
-from algostack.strategies.intraday_orb import IntradayORBStrategy
-from algostack.strategies.mean_reversion_equity import MeanReversionEquityStrategy
-from algostack.strategies.overnight_drift import OvernightDriftStrategy
-from algostack.strategies.pairs_stat_arb import PairsStatArbStrategy
-from algostack.strategies.trend_following_multi import TrendFollowingMultiStrategy
+from strategies.hybrid_regime import HybridRegimeStrategy
+from strategies.intraday_orb import IntradayORBStrategy
+from strategies.mean_reversion_equity import MeanReversionEquityStrategy
+from strategies.overnight_drift import OvernightDriftStrategy
+from strategies.pairs_stat_arb import PairsStatArbStrategy
+from strategies.trend_following_multi import TrendFollowingMultiStrategy
 
 # Setup logging
 logging.basicConfig(

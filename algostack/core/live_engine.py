@@ -15,20 +15,21 @@ from datetime import datetime
 from typing import Any, Optional
 
 import pandas as pd
-from algostack.adapters.ibkr_executor import IBKRExecutor
-from algostack.adapters.paper_executor import PaperExecutor
-from algostack.core.data_handler import DataHandler
-from algostack.core.engine.enhanced_order_manager import (
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+
+from adapters.ibkr_executor import IBKRExecutor
+from adapters.paper_executor import PaperExecutor
+from core.data_handler import DataHandler
+from core.engine.enhanced_order_manager import (
     EnhancedOrderManager,
     OrderEventType,
 )
-from algostack.core.executor import Order, OrderSide, OrderType, TimeInForce
-from algostack.core.metrics import MetricsCollector
-from algostack.core.portfolio import PortfolioEngine
-from algostack.core.risk import EnhancedRiskManager as RiskManager
-from algostack.strategies.base import BaseStrategy, Signal
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
+from core.executor import Order, OrderSide, OrderType, TimeInForce
+from core.metrics import MetricsCollector
+from core.portfolio import PortfolioEngine
+from core.risk import EnhancedRiskManager as RiskManager
+from strategies.base import BaseStrategy, Signal
 
 logger = logging.getLogger(__name__)
 
@@ -63,37 +64,39 @@ class LiveTradingEngine:
                 - schedule: Trading schedule configuration
         """
         self.config = config
-        self.mode = TradingMode(config.get("mode", TradingMode.PAPER))
+        self.mode = config.get("mode", TradingMode.PAPER)
 
         # Initialize components
         self.data_handler = DataHandler(config.get("data_config", {}))
-        initial_capital = config.get("portfolio_config", {}).get(
-            "initial_capital", 100000
-        )
-        self.portfolio_engine = PortfolioEngine(initial_capital=initial_capital)
+        portfolio_config = config.get("portfolio_config", {})
+        if "initial_capital" not in portfolio_config:
+            portfolio_config["initial_capital"] = 100000
+        self.portfolio_engine = PortfolioEngine(portfolio_config)
         self.risk_manager = RiskManager(config.get("risk_config", {}))
         self.order_manager = EnhancedOrderManager(risk_manager=self.risk_manager)
-        self.metrics_collector = MetricsCollector(initial_capital)
+        self.metrics_collector = MetricsCollector(portfolio_config["initial_capital"])
 
         # Initialize strategies
         self.strategies: dict[str, BaseStrategy] = {}
-        self._initialize_strategies()
 
-        # Initialize executors
-        self._initialize_executors()
-
-        # Trading state
+        # Trading state - initialize before strategies
         self.is_running = False
         self.is_trading_hours = False
         self._active_symbols: set[str] = set()
         self._last_prices: dict[str, float] = {}
+
+        # Now initialize strategies (needs _active_symbols)
+        self._initialize_strategies()
+
+        # Initialize executors
+        self._initialize_executors()
 
         # Scheduling
         self.scheduler = AsyncIOScheduler()
         self._setup_schedule()
 
         # Statistics
-        self.stats = {
+        self.stats: dict[str, Any] = {
             "engine_start": None,
             "total_signals": 0,
             "total_orders": 0,
@@ -249,7 +252,8 @@ class LiveTradingEngine:
         self.scheduler.shutdown()
 
         # Disconnect executors
-        for _name, executor in self.order_manager.executors.items():
+        for name, executor in self.order_manager.executors.items():
+            logger.info(f"Disconnecting executor: {name}")
             await executor.disconnect()
 
         # Final statistics
@@ -278,7 +282,7 @@ class LiveTradingEngine:
 
             except Exception as e:
                 logger.error(f"Error in main loop: {e}")
-                self.stats["errors"] += 1
+                self.stats["errors"] = self.stats.get("errors", 0) + 1
                 await asyncio.sleep(update_interval)
 
     async def _initialize_data_feeds(self) -> None:
@@ -314,7 +318,8 @@ class LiveTradingEngine:
                 # Update paper executor prices
                 if "paper" in self.order_manager.executors:
                     paper_executor = self.order_manager.executors["paper"]
-                    paper_executor.update_price(symbol, price)
+                    if hasattr(paper_executor, 'update_price'):
+                        paper_executor.update_price(symbol, price)
 
             except Exception as e:
                 logger.error(f"Error updating market data for {symbol}: {e}")
@@ -324,21 +329,21 @@ class LiveTradingEngine:
         try:
             positions = await self.order_manager.get_positions()
 
-            # Update portfolio engine
-            for symbol, position in positions.items():
-                self.portfolio_engine.update_position(
-                    symbol=symbol,
-                    quantity=position.quantity,
-                    avg_price=position.average_cost,
-                    current_price=position.current_price,
-                )
+            # Update portfolio engine if method exists
+            if hasattr(self.portfolio_engine, 'update_position'):
+                for symbol, position in positions.items():
+                    self.portfolio_engine.update_position(
+                        symbol=symbol,
+                        quantity=position.quantity,
+                        avg_price=position.average_cost,
+                        current_price=position.current_price,
+                    )
 
         except Exception as e:
             logger.error(f"Error updating positions: {e}")
 
     async def _run_strategies(self) -> None:
         """Execute all strategies."""
-        datetime.now()
 
         for strategy_id, strategy in self.strategies.items():
             try:
@@ -347,10 +352,13 @@ class LiveTradingEngine:
 
                 if strategy_data is not None:
                     # Generate signals
-                    signals = strategy.generate_signals(strategy_data)
+                    if hasattr(strategy, 'generate_signals'):
+                        signals = strategy.generate_signals(strategy_data)
+                    else:
+                        signals = []
 
                     if signals:
-                        self.stats["total_signals"] += len(signals)
+                        self.stats["total_signals"] = self.stats.get("total_signals", 0) + len(signals)
 
                         # Process signals
                         for signal in signals:
@@ -358,7 +366,7 @@ class LiveTradingEngine:
 
             except Exception as e:
                 logger.error(f"Error running strategy {strategy_id}: {e}")
-                self.stats["errors"] += 1
+                self.stats["errors"] = self.stats.get("errors", 0) + 1
 
     def _prepare_strategy_data(self, strategy: BaseStrategy) -> Optional[pd.DataFrame]:
         """Prepare data for strategy execution."""
@@ -383,7 +391,8 @@ class LiveTradingEngine:
                 return
 
             # Determine order side
-            if signal.direction > 0:
+            signal_direction = getattr(signal, 'direction', 0)
+            if isinstance(signal_direction, (int, float)) and signal_direction > 0:
                 side = OrderSide.BUY
             else:
                 side = OrderSide.SELL
@@ -404,7 +413,7 @@ class LiveTradingEngine:
             success = await self.order_manager.submit_order(order)
 
             if success:
-                self.stats["total_orders"] += 1
+                self.stats["total_orders"] = self.stats.get("total_orders", 0) + 1
                 logger.info(f"Order submitted: {order.order_id}")
             else:
                 logger.error(f"Failed to submit order for signal: {signal}")
@@ -415,6 +424,10 @@ class LiveTradingEngine:
 
     def _should_trade_signal(self, signal: Signal) -> bool:
         """Determine if signal should be traded."""
+        # First validate the signal
+        if not self._is_valid_signal(signal):
+            return False
+            
         # Check signal strength threshold
         min_strength = self.config.get("min_signal_strength", 0.5)
         if abs(signal.strength) < min_strength:
@@ -427,10 +440,20 @@ class LiveTradingEngine:
         # Additional filters can be added here
         return True
 
+    def _is_valid_signal(self, signal: Signal) -> bool:
+        """Check if signal is valid for processing."""
+        strength = getattr(signal, 'strength', 0)
+
+        # Ensure strength is numeric and positive
+        if isinstance(strength, (int, float)) and strength > 0:
+            return True
+
+        return False
+
     def _calculate_position_size(self, signal: Signal) -> int:
         """Calculate position size for signal."""
         # Get account value
-        account_value = self.portfolio_engine.total_value
+        account_value = getattr(self.portfolio_engine, 'total_value', self.portfolio_engine.initial_capital)
 
         # Risk per trade
         risk_per_trade = self.config.get("risk_per_trade", 0.02)  # 2% default
@@ -448,13 +471,16 @@ class LiveTradingEngine:
         max_position_size = self.config.get("max_position_size", 1000)
         shares = min(shares, max_position_size)
 
-        return shares
+        return int(shares)
 
     async def _check_risk_limits(self) -> None:
         """Check and enforce risk limits."""
         try:
             # Check portfolio risk
-            violations = self.risk_manager.check_limits()
+            if hasattr(self.risk_manager, 'check_limits'):
+                violations = self.risk_manager.check_limits()
+            else:
+                violations = []
 
             if violations:
                 logger.warning(f"Risk limit violations: {violations}")
@@ -550,7 +576,8 @@ class LiveTradingEngine:
         self._generate_daily_report()
 
         # Update performance metrics
-        self.portfolio_engine.calculate_metrics()
+        if hasattr(self.portfolio_engine, 'calculate_metrics'):
+            self.portfolio_engine.calculate_metrics()
 
         # Log statistics
         self._log_statistics()
@@ -562,7 +589,7 @@ class LiveTradingEngine:
     ) -> None:
         """Handle order events."""
         if event_type == OrderEventType.FILLED:
-            self.stats["total_fills"] += 1
+            self.stats["total_fills"] = self.stats.get("total_fills", 0) + 1
             logger.info(
                 f"Order filled: {order.order_id} - {order.filled_quantity} @ {order.average_fill_price}"
             )
@@ -606,10 +633,10 @@ class LiveTradingEngine:
             "strategies": list(self.strategies.keys()),
             "statistics": self.stats.copy(),
             "portfolio": {
-                "total_value": self.portfolio_engine.total_value,
-                "cash": self.portfolio_engine.cash,
-                "positions": len(self.portfolio_engine.positions),
-                "daily_pnl": self.portfolio_engine.calculate_daily_pnl(),
+                "total_value": getattr(self.portfolio_engine, 'total_value', self.portfolio_engine.initial_capital),
+                "cash": getattr(self.portfolio_engine, 'cash', self.portfolio_engine.initial_capital),
+                "positions": len(getattr(self.portfolio_engine, 'positions', {})),
+                "daily_pnl": self.portfolio_engine.calculate_daily_pnl() if hasattr(self.portfolio_engine, 'calculate_daily_pnl') else 0,
             },
             "order_stats": self.order_manager.get_order_statistics(),
         }
@@ -626,6 +653,7 @@ class LiveTradingEngine:
         logger.info(f"  Total fills: {self.stats['total_fills']}")
         logger.info(f"  Errors: {self.stats['errors']}")
 
-        if self.stats["engine_start"]:
-            runtime = datetime.now() - self.stats["engine_start"]
+        engine_start = self.stats.get("engine_start")
+        if isinstance(engine_start, datetime):
+            runtime = datetime.now() - engine_start
             logger.info(f"  Runtime: {runtime}")

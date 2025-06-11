@@ -11,7 +11,7 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from algostack.api.models import (
+from api.models import (
     AlertInfo,
     OrderCommand,
     OrderInfo,
@@ -28,7 +28,7 @@ from algostack.api.models import (
     WSMessage,
     WSSubscription,
 )
-from algostack.core.live_engine import LiveTradingEngine
+from core.live_engine import LiveTradingEngine
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
@@ -224,7 +224,7 @@ class MonitoringAPI:
             return {"status": "success", "action": command.action}
 
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     # Strategy endpoints
 
@@ -362,7 +362,7 @@ class MonitoringAPI:
 
         try:
             # Convert to internal types
-            from algostack.core.executor import OrderSide, OrderType
+            from core.executor import OrderSide, OrderType
 
             side = OrderSide.BUY if command.side == "buy" else OrderSide.SELL
             order_type_map = {
@@ -393,7 +393,7 @@ class MonitoringAPI:
                 raise HTTPException(status_code=400, detail="Order submission failed")
 
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def cancel_order(self, order_id: str):
         """Cancel order."""

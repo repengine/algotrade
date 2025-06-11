@@ -12,7 +12,7 @@ This script demonstrates how to:
 import asyncio
 import logging
 
-from algostack.adapters.ibkr_adapter import (
+from adapters.ibkr_adapter import (
     IBKRAdapter,
 )
 

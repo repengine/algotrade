@@ -279,3 +279,7 @@ class MeanReversionEquity(BaseStrategy):
     def validate_config(self, config: dict[str, Any]) -> dict[str, Any]:
         """Validate mean reversion strategy configuration."""
         return validate_mean_reversion_config(config)
+
+
+# Alias for backward compatibility
+MeanReversionEquityStrategy = MeanReversionEquity

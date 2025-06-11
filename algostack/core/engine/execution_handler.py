@@ -9,10 +9,10 @@ import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 
-from ...utils.logging import setup_logger
-from .order_manager import Order, OrderType
+from utils.logging import setup_logger
+from core.engine.order_manager import Order, OrderType
 
 
 class ExecutionAlgorithm(Enum):
@@ -65,7 +65,7 @@ class ExecutionHandler:
     - Execution analytics
     """
 
-    def __init__(self, order_manager, market_data_provider=None):
+    def __init__(self, order_manager: Any, market_data_provider: Optional[Any] = None) -> None:
         """
         Initialize execution handler.
 

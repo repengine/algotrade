@@ -8,9 +8,9 @@ live trading engine in paper trading mode.
 import asyncio
 import logging
 
-from algostack.core.live_engine import LiveTradingEngine, TradingMode
-from algostack.strategies.mean_reversion_equity import MeanReversionEquityStrategy
-from algostack.strategies.trend_following_multi import TrendFollowingMultiStrategy
+from core.live_engine import LiveTradingEngine, TradingMode
+from strategies.mean_reversion_equity import MeanReversionEquityStrategy
+from strategies.trend_following_multi import TrendFollowingMultiStrategy
 
 
 async def main():

@@ -15,6 +15,11 @@ from typing import Any, Optional, Protocol
 logger = logging.getLogger(__name__)
 
 
+class ExecutorError(Exception):
+    """Base exception for executor errors."""
+    pass
+
+
 class OrderStatus(Enum):
     """Order status enumeration."""
 
@@ -111,15 +116,15 @@ class ExecutionCallback(Protocol):
 
     def on_order_status(self, order: Order) -> None:
         """Called when order status changes."""
-        ...
+        ...  # pragma: no cover
 
     def on_fill(self, fill: Fill) -> None:
         """Called when order is filled."""
-        ...
+        ...  # pragma: no cover
 
     def on_error(self, error: Exception, order: Optional[Order] = None) -> None:
         """Called when execution error occurs."""
-        ...
+        ...  # pragma: no cover
 
 
 class BaseExecutor(ABC):
@@ -290,3 +295,17 @@ class BaseExecutor(ABC):
     def get_position(self, symbol: str) -> Optional[Position]:
         """Get position for symbol."""
         return self._positions.get(symbol)
+
+    def update_price(self, symbol: str, price: float) -> None:
+        """
+        Update current market price for a symbol.
+        
+        This is a default implementation that can be overridden by subclasses.
+        
+        Args:
+            symbol: Symbol to update
+            price: Current market price
+        """
+        # Default implementation does nothing
+        # Subclasses (like PaperExecutor) should override to track prices
+        pass

@@ -11,7 +11,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any, Callable, Optional
 
-from algostack.core.executor import (
+from core.executor import (
     BaseExecutor,
     ExecutionCallback,
     Fill,

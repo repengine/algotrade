@@ -84,8 +84,8 @@ class MetricsCollector:
         self.current_drawdown = 0.0
 
         # Performance metrics cache
-        self._metrics_cache = {}
-        self._cache_timestamp = None
+        self._metrics_cache: dict[str, float] = {}
+        self._cache_timestamp: Optional[datetime] = None
 
     def record_trade_entry(
         self,
@@ -235,11 +235,11 @@ class MetricsCollector:
             if datetime.now() - self._cache_timestamp < timedelta(seconds=60):
                 return self._metrics_cache
 
-        metrics = {}
+        metrics: dict[str, float] = {}
 
         # Basic metrics
-        metrics["total_trades"] = len(self.trades)
-        metrics["open_trades"] = len(self.open_trades)
+        metrics["total_trades"] = float(len(self.trades))
+        metrics["open_trades"] = float(len(self.open_trades))
 
         if not self.trades:
             # No trades yet
@@ -275,14 +275,14 @@ class MetricsCollector:
 
         # P&L statistics
         if winning_trades:
-            metrics["average_win"] = np.mean([t.pnl for t in winning_trades])
+            metrics["average_win"] = float(np.mean([t.pnl for t in winning_trades]))
             metrics["largest_win"] = max(t.pnl for t in winning_trades)
         else:
             metrics["average_win"] = 0.0
             metrics["largest_win"] = 0.0
 
         if losing_trades:
-            metrics["average_loss"] = np.mean([t.pnl for t in losing_trades])
+            metrics["average_loss"] = float(np.mean([t.pnl for t in losing_trades]))
             metrics["largest_loss"] = min(t.pnl for t in losing_trades)
         else:
             metrics["average_loss"] = 0.0
@@ -296,7 +296,7 @@ class MetricsCollector:
         )
 
         # Overall statistics
-        metrics["average_trade_pnl"] = np.mean([t.pnl for t in self.trades])
+        metrics["average_trade_pnl"] = float(np.mean([t.pnl for t in self.trades]))
         metrics["total_pnl"] = sum(t.pnl for t in self.trades)
         metrics["total_commission"] = sum(t.commission for t in self.trades)
 
@@ -309,8 +309,8 @@ class MetricsCollector:
         metrics["max_drawdown"] = self.max_drawdown
         metrics["current_drawdown"] = self.current_drawdown
 
-        # Strategy breakdown
-        metrics["strategy_performance"] = self._calculate_strategy_performance()
+        # Strategy breakdown - don't include in metrics dict since it's not a float
+        # self._calculate_strategy_performance() returns dict[str, dict[str, float]]
 
         # Cache results
         self._metrics_cache = metrics
@@ -336,7 +336,7 @@ class MetricsCollector:
         if excess_returns.std() == 0:
             return 0.0
 
-        return np.sqrt(252) * excess_returns.mean() / excess_returns.std()
+        return float(np.sqrt(252) * excess_returns.mean() / excess_returns.std())
 
     def _calculate_sortino_ratio(self, target_return: float = 0.0) -> float:
         """Calculate Sortino ratio (downside deviation)."""
@@ -356,7 +356,7 @@ class MetricsCollector:
         if len(downside_returns) == 0 or downside_returns.std() == 0:
             return 0.0
 
-        return np.sqrt(252) * (returns.mean() - target_return) / downside_returns.std()
+        return float(np.sqrt(252) * (returns.mean() - target_return) / downside_returns.std())
 
     def _calculate_calmar_ratio(self) -> float:
         """Calculate Calmar ratio (return / max drawdown)."""
@@ -401,10 +401,10 @@ class MetricsCollector:
             winning = [t for t in trades if t.pnl > 0]
 
             strategy_metrics[strategy_id] = {
-                "trades": len(trades),
-                "win_rate": len(winning) / len(trades) if trades else 0,
-                "total_pnl": sum(t.pnl for t in trades),
-                "average_pnl": np.mean([t.pnl for t in trades]),
+                "trades": float(len(trades)),
+                "win_rate": float(len(winning)) / float(len(trades)) if trades else 0.0,
+                "total_pnl": float(sum(t.pnl for t in trades)),
+                "average_pnl": float(np.mean([t.pnl for t in trades])),
             }
 
         return strategy_metrics
@@ -428,3 +428,7 @@ class MetricsCollector:
         df["drawdown"] = df["value"] / df["value"].cummax() - 1
 
         return df
+
+
+# Alias for backward compatibility
+BacktestMetrics = MetricsCollector

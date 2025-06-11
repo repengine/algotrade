@@ -402,3 +402,7 @@ class TrendFollowingMulti(BaseStrategy):
     def validate_config(self, config: dict[str, Any]) -> dict[str, Any]:
         """Validate trend following strategy configuration."""
         return validate_trend_following_config(config)
+
+
+# Alias for backward compatibility
+TrendFollowingMultiStrategy = TrendFollowingMulti

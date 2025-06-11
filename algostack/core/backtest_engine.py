@@ -12,7 +12,7 @@ This module implements:
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Generator
 
 import numpy as np
 import pandas as pd
@@ -115,7 +115,7 @@ class TransactionCostModel:
             if hour < 10 or hour >= 15:  # First/last hour
                 base_spread *= 1.5
 
-        return base_spread
+        return float(base_spread)
 
     def _calculate_slippage(
         self, price: float, shares: int, avg_daily_volume: int, side: str
@@ -148,7 +148,7 @@ class TransactionCostModel:
         if side == "SELL":
             slippage *= -1  # Negative slippage for sells
 
-        return abs(slippage)
+        return float(abs(slippage))
 
 
 class DataSplitter:
@@ -170,7 +170,8 @@ class DataSplitter:
             # For purged k-fold, return the first split as a default
             # Use get_all_splits() to access all k-fold splits
             generator = self._purged_kfold_split(data)
-            return next(generator)
+            train, test = next(generator)
+            return (train, test)
         else:
             raise ValueError(f"Unknown split method: {self.method}")
 
@@ -191,7 +192,7 @@ class DataSplitter:
 
         return is_data, oos_data
 
-    def _purged_kfold_split(self, data: pd.DataFrame, n_splits: int = 5):
+    def _purged_kfold_split(self, data: pd.DataFrame, n_splits: int = 5) -> Generator[tuple[pd.DataFrame, pd.DataFrame], None, None]:
         """Purged K-fold cross-validation for time series."""
         # This returns a generator of train/test splits
         tscv = TimeSeriesSplit(n_splits=n_splits, gap=self.embargo_days)
@@ -316,7 +317,7 @@ class WalkForwardAnalyzer:
 
         return results_df
 
-    def _generate_windows(self, data: pd.DataFrame):
+    def _generate_windows(self, data: pd.DataFrame) -> Generator[tuple[pd.Timestamp, pd.Timestamp, pd.Timestamp, pd.Timestamp], None, None]:
         """Generate walk-forward windows."""
 
         data_start = data.index[0]
@@ -368,9 +369,9 @@ class WalkForwardAnalyzer:
         # Log progress only at key points
         combination_count = 0
 
-        for values in itertools.product(*param_values):
+        for values_tuple in itertools.product(*param_values):
             combination_count += 1
-            params = dict(zip(param_names, values))
+            params = dict(zip(param_names, values_tuple))
 
             # Suppress output during optimization by redirecting stdout
             import contextlib
@@ -462,7 +463,7 @@ class MonteCarloValidator:
 
         for _ in range(self.n_simulations):
             # Randomly shuffle returns
-            shuffled_returns = returns.sample(frac=1, replace=False).values
+            shuffled_returns = np.asarray(returns.sample(frac=1, replace=False).values)
 
             # Calculate Sharpe ratio
             if len(shuffled_returns) > 1 and np.std(shuffled_returns) > 0:
@@ -638,20 +639,18 @@ class RegimeAnalyzer:
         # Get volatility regime labels
         vol_labels = pd.Series(index=data.index, dtype=str)
         for regime_name, regime_data in vol_regimes.items():
-            vol_labels.loc[regime_data.index] = regime_name.split("-")[
+            vol_labels.loc[regime_data.index] = regime_name.split("_")[
                 0
-            ]  # 'low' or 'high'
+            ]  # 'low', 'medium', or 'high'
 
         # Get trend regime labels
         trend_labels = pd.Series(index=data.index, dtype=str)
         for regime_name, regime_data in trend_regimes.items():
-            trend_labels.loc[regime_data.index] = regime_name.split("-")[
-                0
-            ]  # 'bull' or 'bear'
+            trend_labels.loc[regime_data.index] = regime_name  # 'uptrend', 'downtrend', or 'sideways'
 
         # Combine labels
-        for vol in ["low", "high"]:
-            for trend in ["bull", "bear"]:
+        for vol in ["low", "medium", "high"]:
+            for trend in ["uptrend", "downtrend", "sideways"]:
                 mask = (vol_labels == vol) & (trend_labels == trend)
                 if mask.sum() > 0:
                     regime_name = f"{vol}-vol-{trend}-market"
@@ -660,7 +659,7 @@ class RegimeAnalyzer:
         return combined_regimes
 
     def analyze_regime_performance(
-        self, strategy, data: pd.DataFrame, backtest_func: Callable
+        self, strategy: Any, data: pd.DataFrame, backtest_func: Callable
     ) -> dict[str, Any]:
         """Analyze strategy performance across regimes."""
 

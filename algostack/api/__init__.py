@@ -4,8 +4,8 @@ AlgoStack API Module
 Provides FastAPI-based monitoring and control interface.
 """
 
-from algostack.api.app import MonitoringAPI, create_app
-from algostack.api.models import (
+from api.app import MonitoringAPI, create_app
+from api.models import (
     AlertInfo,
     OrderInfo,
     PerformanceMetrics,

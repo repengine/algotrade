@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Optional
 
-from algostack.core.executor import (
+from core.executor import (
     BaseExecutor,
     Fill,
     Order,

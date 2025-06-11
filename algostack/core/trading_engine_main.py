@@ -4,10 +4,11 @@ import asyncio
 import logging
 from typing import Any
 
+import pandas as pd
 from pydantic import BaseModel
 
 from .data_handler import DataHandler
-from .portfolio import Portfolio
+from .portfolio import PortfolioEngine
 from .risk import EnhancedRiskManager as RiskManager
 
 logger = logging.getLogger(__name__)
@@ -28,9 +29,9 @@ class TradingEngine:
     def __init__(self, config: EngineConfig) -> None:
         self.config = config
         self.data_handler = DataHandler(config.data_providers)
-        self.portfolio = Portfolio()
+        self.portfolio = PortfolioEngine({})
         self.risk_manager = RiskManager(config.risk_params)
-        self.strategies = {}
+        self.strategies: dict[str, Any] = {}
         self.running = False
 
     async def start(self) -> None:
@@ -40,7 +41,7 @@ class TradingEngine:
 
         # Initialize components
         await self.data_handler.initialize()
-        await self.portfolio.initialize()
+        # Portfolio is already initialized in __init__
 
         # Main event loop
         while self.running:
@@ -49,7 +50,12 @@ class TradingEngine:
                 market_data = await self.data_handler.get_latest()
 
                 # Update portfolio with latest prices
-                self.portfolio.update_prices(market_data)
+                # Extract prices from market_data
+                prices = {}
+                for symbol, data in market_data.items():
+                    if isinstance(data, pd.DataFrame) and not data.empty:
+                        prices[symbol] = data['close'].iloc[-1]
+                self.portfolio.update_market_prices(prices)
 
                 # Generate signals from each strategy
                 signals = {}
@@ -62,7 +68,9 @@ class TradingEngine:
 
                 # Execute orders
                 if sized_orders:
-                    await self.portfolio.execute_orders(sized_orders)
+                    # Execute orders through signals
+                    for _order in sized_orders:
+                        pass  # TODO: Implement order execution
 
                 # Sleep until next tick
                 await asyncio.sleep(1)

@@ -39,6 +39,10 @@ rich>=13.7.0
 sqlalchemy>=2.0.0
 psycopg2-binary>=2.9.0
 
+# Data Storage
+pyarrow>=10.0.0
+fastparquet>=2024.0.0
+
 # Monitoring & Alerts
 prometheus-client>=0.17.0
 
@@ -46,10 +50,14 @@ prometheus-client>=0.17.0
 pytest>=7.4.0
 pytest-asyncio>=0.21.0
 pytest-cov>=4.1.0
+pytest-mock>=3.11.0
 hypothesis>=6.82.0
 black>=23.7.0
 ruff>=0.0.287
 mypy>=1.5.0
+httpx>=0.24.0
+freezegun>=1.2.0
+faker>=19.0.0
 
 # Visualization (optional)
 matplotlib>=3.7.0

@@ -1,5 +1,10 @@
 # Claude Development Guidelines for AlgoStack
 
+## Test Design Reference
+For comprehensive test design patterns and implementation guidelines, see:
+- **Quick Reference**: `docs/planning/test-design-index.md` (start here)
+- **Full Documentation**: `docs/planning/test-design-overhaul-plan.md` (detailed examples)
+
 ## CRITICAL: Prevent Module Bloat
 
 **ALWAYS follow these rules when working on AlgoStack:**
@@ -19,13 +24,6 @@
    - Check if functionality already exists (even partially)
    - Confirm no similar code exists in the codebase
    - Ask user for approval before creating new modules
-
-4. **EXISTING KEY MODULES TO CHECK**:
-   - `core/optimization.py` - Has PlateauDetector, optimizers, ensemble methods
-   - `core/backtest_engine.py` - Walk-forward analysis, Monte Carlo
-   - `dashboard.py` - Main dashboard with all features
-   - `strategies/` - Existing strategy implementations
-   - `test_files/` and `tests/` - Existing test suites
 
 5. **MODULE CREATION CHECKLIST**:
    - [ ] Searched for similar functionality with Grep

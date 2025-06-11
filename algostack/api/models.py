@@ -174,7 +174,7 @@ class TradeInfo(BaseModel):
 class StrategyCommand(BaseModel):
     """Strategy control command."""
 
-    action: str = Field(..., regex="^(enable|disable|reset)$")
+    action: str = Field(..., pattern="^(enable|disable|reset)$")
     strategy_id: str
     parameters: Optional[dict[str, Any]] = None
 
@@ -183,12 +183,12 @@ class OrderCommand(BaseModel):
     """Manual order command."""
 
     symbol: str
-    side: str = Field(..., regex="^(buy|sell)$")
+    side: str = Field(..., pattern="^(buy|sell)$")
     quantity: int = Field(..., gt=0)
-    order_type: str = Field(default="market", regex="^(market|limit|stop|stop_limit)$")
+    order_type: str = Field(default="market", pattern="^(market|limit|stop|stop_limit)$")
     limit_price: Optional[float] = None
     stop_price: Optional[float] = None
-    time_in_force: str = Field(default="day", regex="^(day|gtc|ioc|fok)$")
+    time_in_force: str = Field(default="day", pattern="^(day|gtc|ioc|fok)$")
 
 
 class RiskOverride(BaseModel):
@@ -203,7 +203,7 @@ class RiskOverride(BaseModel):
 class SystemCommand(BaseModel):
     """System control command."""
 
-    action: str = Field(..., regex="^(start|stop|pause|resume|emergency_stop)$")
+    action: str = Field(..., pattern="^(start|stop|pause|resume|emergency_stop)$")
     confirm: bool = False
 
 
@@ -221,7 +221,7 @@ class WSMessage(BaseModel):
 class WSSubscription(BaseModel):
     """WebSocket subscription request."""
 
-    action: str = Field(..., regex="^(subscribe|unsubscribe)$")
+    action: str = Field(..., pattern="^(subscribe|unsubscribe)$")
     channels: list[str]  # positions, orders, signals, alerts, metrics
 
 

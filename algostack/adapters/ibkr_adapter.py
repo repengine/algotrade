@@ -19,6 +19,8 @@ from aiohttp.client_exceptions import ClientError
 
 from utils.logging import setup_logger
 
+logger = setup_logger(__name__)
+
 
 class ConnectionState(Enum):
     """Connection states for IBKR gateway"""
@@ -453,7 +455,8 @@ class IBKRAdapter:
             # Try to access the root endpoint
             async with self.session.get(self.base_url) as response:
                 return response.status in [200, 302, 401]
-        except:
+        except Exception as e:
+            logger.error(f"Error checking health: {e}")
             return False
 
     async def _check_auth_status(self) -> bool:
