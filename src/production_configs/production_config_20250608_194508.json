@@ -1,0 +1,57 @@
+{
+  "generated_at": "2025-06-08T19:45:08.484488",
+  "strategies": {
+    "MeanReversionEquity": {
+      "primary": {
+        "symbol": "QQQ",
+        "lookback_period": 20,
+        "entry_threshold": 1.5,
+        "exit_threshold": 0.0,
+        "position_size": 0.9,
+        "rsi_period": 10,
+        "rsi_oversold": 30,
+        "rsi_overbought": 70
+      },
+      "performance": {
+        "backtest_sharpe": 1.2342785141528034,
+        "backtest_return": 49.108359741210926,
+        "backtest_drawdown": -11.717421424073887
+      },
+      "secondary": {
+        "symbol": "QQQ",
+        "lookback_period": 30,
+        "entry_threshold": 2.0,
+        "exit_threshold": 0.5,
+        "position_size": 0.7,
+        "rsi_period": 14,
+        "rsi_oversold": 30,
+        "rsi_overbought": 70
+      }
+    },
+    "TrendFollowingMulti": {
+      "primary": {
+        "symbol": "SPY",
+        "fast_period": 20,
+        "slow_period": 50,
+        "atr_period": 14,
+        "atr_multiplier": 2.0,
+        "trend_filter_period": 100,
+        "position_size": 0.8
+      },
+      "performance": {
+        "backtest_sharpe": 0,
+        "backtest_return": 0.0,
+        "backtest_drawdown": 0.0
+      },
+      "secondary": {
+        "symbol": "SPY",
+        "fast_period": 10,
+        "slow_period": 30,
+        "atr_period": 10,
+        "atr_multiplier": 1.5,
+        "trend_filter_period": 50,
+        "position_size": 0.7
+      }
+    }
+  }
+}

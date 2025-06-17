@@ -1,0 +1,54 @@
+# Configuration for Futures Momentum Strategy
+
+engine:
+  mode: paper
+  log_level: INFO
+  
+data:
+  providers:
+    - yfinance
+  cache_dir: data/cache
+  
+portfolio:
+  initial_capital: 10000.0
+  base_currency: USD
+  
+risk:
+  target_vol: 0.15  # 15% annual volatility
+  max_position_size: 0.95  # Use most of capital
+  max_drawdown: 0.20  # 20% kill switch
+  kelly_fraction: 0.5
+  stop_loss_atr: 2.0
+  
+strategies:
+  futures_momentum:
+    enabled: true
+    symbols:
+      - SPY  # Using SPY as proxy for ES/MES
+    params:
+      lookback_period: 20  # 20 bars
+      breakout_threshold: 0.5  # 0.5% above high
+      rsi_period: 14
+      rsi_threshold: 60
+      atr_period: 14
+      stop_loss_atr: 2.0
+      profit_target_atr: 3.0
+      volume_multiplier: 1.2
+      position_size: 0.95
+      max_positions: 1
+      trade_hours:
+        start: 9.5   # 9:30 AM
+        end: 15.5    # 3:30 PM
+      
+execution:
+  broker: paper
+  order_timeout_seconds: 60
+  retry_attempts: 3
+  
+backtest:
+  interval: "5m"  # 5-minute bars
+  start_date: "2024-01-01"
+  end_date: "2024-06-01"
+  initial_capital: 10000
+  commission: 0.52  # MES commission per side
+  slippage: 0.0001  # 1 tick slippage

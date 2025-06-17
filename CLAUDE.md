@@ -1,11 +1,11 @@
-# Claude Development Guidelines for AlgoStack
+# Claude Development Guidelines for AlgoTrade
 
 ---We are using Poetry dependency manager in this project---
 
 ## 🎯 PRIME DIRECTIVE: Every Decision Must Serve The Trading System and Four Pillars (Listed below)
 
-Refer to /algostack/docs/planning/test-scaffold.md before fixing or creating test files.
-Refer to /algostack/docs/planning/TECHNICAL_REFERENCE.md before coding or fixing code modules.
+Refer to /docs/planning/test-scaffold.md before fixing or creating test files.
+Refer to /docs/planning/TECHNICAL_REFERENCE.md before coding or fixing code modules.
 
 **BEFORE EVERY ACTION - Code, Tests, Documentation, Architecture, ANYTHING - Ask:**
 
@@ -99,7 +99,7 @@ For comprehensive test design patterns and implementation guidelines, see:
 
 ## CRITICAL: Prevent Module Bloat
 
-**ALWAYS follow these rules when working on AlgoStack:**
+**ALWAYS follow these rules when working on AlgoTrade:**
 
 1. **SEARCH FIRST**: Before creating ANY new module or file:
    - Use Glob to find similar filenames

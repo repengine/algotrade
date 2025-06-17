@@ -1,0 +1,35 @@
+{
+  "strategy_name": "5-Minute Volatility Crusher",
+  "timeframe": "5m",
+  "configuration": {
+    "lookback_periods": 15,
+    "z_entry": -1.25,
+    "z_exit": -0.25,
+    "rsi_period": 2,
+    "rsi_oversold": 25,
+    "leverage": 3.0,
+    "stop_loss_pct": -2.0,
+    "position_size": 0.95,
+    "max_positions": 1,
+    "min_volume_ratio": 1.2
+  },
+  "performance": {
+    "total_return": 7.582676595052089,
+    "num_trades": 37,
+    "projected_annual_return": 379.1338297526044
+  },
+  "implementation_notes": {
+    "data_requirements": "Real-time 5-minute bars with volume",
+    "execution_requirements": "Sub-second execution capability",
+    "account_requirements": "3x intraday leverage, pattern day trader status",
+    "recommended_capital": "$25,000 minimum (PDT requirement)",
+    "automation": "REQUIRED - Manual execution not feasible"
+  },
+  "risk_warnings": [
+    "Uses 3x leverage - losses are magnified",
+    "Requires perfect execution timing",
+    "Susceptible to slippage in fast markets",
+    "May hit pattern day trader limits",
+    "Drawdowns can exceed 100% of initial capital"
+  ]
+}

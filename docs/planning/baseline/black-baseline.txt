@@ -1,0 +1,151 @@
+--- /home/nate/projects/algotrade/algostack/adapters/__init__.py	2025-06-09 02:27:03.232229+00:00
++++ /home/nate/projects/algotrade/algostack/adapters/__init__.py	2025-06-09 19:22:01.291068+00:00
+@@ -1,12 +1,12 @@
+ """Data and execution adapters for various providers."""
+ 
+-from .ibkr_adapter import IBKRAdapter, Contract, Order, OrderType, OrderSide, TimeInForce
++from .ibkr_adapter import (
++    IBKRAdapter,
++    Contract,
++    Order,
++    OrderType,
++    OrderSide,
++    TimeInForce,
++)
+ 
+-__all__ = [
+-    "IBKRAdapter",
+-    "Contract", 
+-    "Order",
+-    "OrderType",
+-    "OrderSide",
+-    "TimeInForce"
+-]
+\ No newline at end of file
++__all__ = ["IBKRAdapter", "Contract", "Order", "OrderType", "OrderSide", "TimeInForce"]
+--- /home/nate/projects/algotrade/algostack/archive/__init__.py	2025-06-09 02:27:03.208230+00:00
++++ /home/nate/projects/algotrade/algostack/archive/__init__.py	2025-06-09 19:22:01.293653+00:00
+@@ -1,3 +1,3 @@
+ """AlgoStack: Multi-strategy algorithmic trading framework."""
+ 
+-__version__ = "0.1.0"
+\ No newline at end of file
++__version__ = "0.1.0"
+would reformat /home/nate/projects/algotrade/algostack/adapters/__init__.py
+would reformat /home/nate/projects/algotrade/algostack/archive/__init__.py
+--- /home/nate/projects/algotrade/algostack/api/__init__.py	2025-06-09 02:27:03.127230+00:00
++++ /home/nate/projects/algotrade/algostack/api/__init__.py	2025-06-09 19:22:01.295870+00:00
+@@ -25,6 +25,6 @@
+     "OrderInfo",
+     "PerformanceMetrics",
+     "RiskMetrics",
+     "AlertInfo",
+     "SignalInfo",
+-]
+\ No newline at end of file
++]
+would reformat /home/nate/projects/algotrade/algostack/api/__init__.py
+--- /home/nate/projects/algotrade/algostack/adapters/yf_fetcher.py	2025-06-09 02:27:03.232229+00:00
++++ /home/nate/projects/algotrade/algostack/adapters/yf_fetcher.py	2025-06-09 19:22:01.345951+00:00
+@@ -11,82 +11,74 @@
+ logger = logging.getLogger(__name__)
+ 
+ 
+ class YFinanceFetcher:
+     """Fetches market data from Yahoo Finance."""
+-    
++
+     def __init__(self):
+         self.name = "yfinance"
+-        
++
+     def fetch_ohlcv(
+-        self,
+-        symbol: str,
+-        start: datetime,
+-        end: datetime,
+-        interval: str = "1d"
++        self, symbol: str, start: datetime, end: datetime, interval: str = "1d"
+     ) -> pd.DataFrame:
+         """Fetch OHLCV data from Yahoo Finance."""
+         try:
+             # Convert interval format
+             yf_interval = self._convert_interval(interval)
+-            
++
+             # Fetch data
+             ticker = yf.Ticker(symbol)
+             df = ticker.history(
+                 start=start,
+                 end=end,
+                 interval=yf_interval,
+-                auto_adjust=True  # Adjust for splits/dividends
++                auto_adjust=True,  # Adjust for splits/dividends
+             )
+-            
++
+             # Standardize column names
+             df.columns = df.columns.str.lower()
+-            
++
+             # Add symbol as attribute
+-            df.attrs['symbol'] = symbol
+-            
++            df.attrs["symbol"] = symbol
++
+             logger.info(f"Fetched {len(df)} bars for {symbol} from Yahoo Finance")
+             return df
+-            
++
+         except Exception as e:
+             logger.error(f"Error fetching {symbol} from Yahoo Finance: {e}")
+             return pd.DataFrame()
+-            
++
+     def fetch_info(self, symbol: str) -> dict:
+         """Fetch stock info/metadata."""
+         try:
+             ticker = yf.Ticker(symbol)
+             return ticker.info
+         except Exception as e:
+             logger.error(f"Error fetching info for {symbol}: {e}")
+             return {}
+-            
++
+     def fetch_multiple(
+-        self,
+-        symbols: list,
+-        start: datetime,
+-        end: datetime,
+-        interval: str = "1d"
++        self, symbols: list, start: datetime, end: datetime, interval: str = "1d"
+     ) -> dict:
+         """Fetch data for multiple symbols."""
+         data = {}
+-        
++
+         for symbol in symbols:
+             df = self.fetch_ohlcv(symbol, start, end, interval)
+             if not df.empty:
+                 data[symbol] = df
+-                
++
+         return data
+-        
++
+     def _convert_interval(self, interval: str) -> str:
+         """Convert interval to yfinance format."""
+         interval_map = {
+             "1m": "1m",
+             "5m": "5m",
+             "15m": "15m",
+             "30m": "30m",
+             "1h": "1h",
+             "1d": "1d",
+             "1w": "1wk",
+-            "1M": "1mo"
++            "1M": "1mo",
+         }
+-        return interval_map.get(interval, interval)
+\ No newline at end of file
++        return interval_map.get(interval, interval)

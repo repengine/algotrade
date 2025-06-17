@@ -1,0 +1,41 @@
+{
+  "strategy": "Mean Reversion 5-min",
+  "test_period": "2025-05-12 09:30:00-04:00 to 2025-06-06 15:55:00-04:00",
+  "best_config": {
+    "name": "Moderate",
+    "lookback_period": 15,
+    "zscore_threshold": 1.5,
+    "exit_zscore": 0.0,
+    "rsi_period": 3,
+    "rsi_oversold": 25.0,
+    "rsi_overbought": 75.0,
+    "stop_loss_atr": 2.5,
+    "position_size": 0.95
+  },
+  "performance": {
+    "total_return": 3.776180859374581,
+    "num_trades": 48,
+    "win_rate": 72.91666666666666,
+    "sharpe_ratio": 6.512111144163409
+  },
+  "all_results": [
+    {
+      "name": "Conservative",
+      "return": 1.8975894531247466,
+      "trades": 29,
+      "win_rate": 75.86206896551724
+    },
+    {
+      "name": "Moderate",
+      "return": 3.776180859374581,
+      "trades": 48,
+      "win_rate": 72.91666666666666
+    },
+    {
+      "name": "Aggressive",
+      "return": 2.071662890624284,
+      "trades": 82,
+      "win_rate": 68.29268292682927
+    }
+  ]
+}

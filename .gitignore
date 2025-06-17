@@ -8,6 +8,10 @@ env/
 venv/
 ENV/
 .venv
+test_venv/
+test_coverage_env/
+src/test_venv/
+src/test_coverage_env/
 pip-log.txt
 pip-delete-this-directory.txt
 .pytest_cache/
@@ -52,3 +56,5 @@ backtest_results/
 performance_reports/
 *.pkl
 *.h5
+htmlcov/
+src/htmlcov/
