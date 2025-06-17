@@ -11,14 +11,6 @@ import pytest
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
-sys.path.insert(0, str(Path(__file__).parent / "test_files"))
-
-# Import mock dependencies first
-try:
-    import mock_imports
-except ImportError:
-    # If mock_imports is not available, continue without it
-    pass
 
 from strategies.base import Signal
 

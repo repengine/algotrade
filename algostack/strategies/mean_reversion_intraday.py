@@ -1,9 +1,12 @@
 """Mean reversion strategy optimized for intraday (5-minute) trading."""
 
+import logging
 from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 try:
     import talib
@@ -13,8 +16,8 @@ except ImportError:
 
     talib = create_talib_compatible_module()
 
-from strategies.base import BaseStrategy, RiskContext, Signal
-from utils.validators.strategy_validators import validate_mean_reversion_config
+from algostack.strategies.base import BaseStrategy, RiskContext, Signal
+from algostack.utils.validators.strategy_validators import validate_mean_reversion_config
 
 
 class MeanReversionIntraday(BaseStrategy):
@@ -292,10 +295,10 @@ class MeanReversionIntraday(BaseStrategy):
 
         # Add intraday-specific validations
         if validated.get("lookback_period", 20) > 100:
-            print("Warning: Large lookback period for intraday trading")
+            logger.warning("Large lookback period for intraday trading")
 
         if validated.get("position_size", 0.95) < 0.8:
-            print("Warning: Conservative position size for intraday strategy")
+            logger.warning("Conservative position size for intraday strategy")
 
         return validated
 

@@ -10,6 +10,7 @@ This version includes:
 5. Parameter optimization
 """
 
+import logging
 import os
 import sys
 from datetime import datetime
@@ -18,20 +19,13 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+logger = logging.getLogger(__name__)
+
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Import enhanced backtesting components
 # Import existing dashboard components
-from scripts.dashboard_pandas import (
-    AlphaVantageDataManager,
-    PandasStrategyManager,
-    create_performance_chart,
-)
-
-# Import pandas indicators
-from scripts.pandas_indicators import create_talib_compatible_module
-
 from core.backtest_engine import (
     DataSplitter,
     MonteCarloValidator,
@@ -40,6 +34,14 @@ from core.backtest_engine import (
     WalkForwardAnalyzer,
     create_backtest_report,
 )
+from scripts.dashboard_pandas import (
+    AlphaVantageDataManager,
+    PandasStrategyManager,
+    create_performance_chart,
+)
+
+# Import pandas indicators
+from scripts.pandas_indicators import create_talib_compatible_module
 
 sys.modules["talib"] = create_talib_compatible_module()
 
@@ -375,7 +377,7 @@ def get_optimization_ranges(strategy_name):
         total = 1
         for _param, values in ranges[strategy_name].items():
             total *= len(values)
-        print(
+        logger.info(
             f"Walk-forward optimization for {strategy_name}: {total} parameter combinations"
         )
 
@@ -938,7 +940,7 @@ def generate_performance_chart(equity_curve, benchmark=None):
     import plotly.graph_objects as go
     fig = go.Figure()
     fig.add_trace(go.Scatter(
-        x=equity_curve.get('timestamp', []), 
+        x=equity_curve.get('timestamp', []),
         y=equity_curve.get('value', []),
         name='Portfolio'
     ))
@@ -981,16 +983,16 @@ def generate_risk_metrics(metrics):
 def generate_trade_history_table(trades, symbol=None, start_date=None):
     """Generate trade history table."""
     data = trades.to_dict('records') if hasattr(trades, 'to_dict') else []
-    
+
     # Apply filters
     if symbol:
         data = [t for t in data if t.get('symbol') == symbol]
     if start_date:
         data = [t for t in data if pd.to_datetime(t.get('timestamp')) >= start_date]
-    
+
     # Sort by timestamp descending
     data.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
-    
+
     return {'data': data}
 
 
@@ -1007,7 +1009,30 @@ def update_dashboard_data(interval):
 
 def register_callbacks(app, portfolio_engine, trading_engine):
     """Register dashboard callbacks."""
-    pass
+    from dash import Input, Output, callback
+    
+    # Register interval update callback
+    @app.callback(
+        Output('performance-chart', 'figure'),
+        Input('interval-component', 'n_intervals')
+    )
+    def update_performance_chart(n):
+        """Update performance chart on interval."""
+        # Placeholder implementation
+        return {}
+    
+    # Register strategy toggle callback
+    @app.callback(
+        Output('strategy-status', 'children'),
+        Input('strategy-toggle', 'value'),
+        Input('strategy-selector', 'value')
+    )
+    def toggle_strategy(toggle_value, strategy_name):
+        """Toggle strategy on/off."""
+        if strategy_name:
+            handle_strategy_toggle(toggle_value, strategy_name, trading_engine)
+            return f"Strategy {strategy_name}: {'Enabled' if toggle_value else 'Disabled'}"
+        return "No strategy selected"
 
 
 def handle_strategy_toggle(value, strategy_name, engine):

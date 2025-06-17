@@ -1,26 +1,13 @@
 """Tests for Alpha Vantage integration."""
 
 import os
-import sys
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
 import pandas as pd
 import pytest
 
-# Add parent directory to path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(
-    0,
-    os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "adapters"
-    ),
-)
-
-# Import directly to avoid adapter __init__
-import av_fetcher
-
-AlphaVantageFetcher = av_fetcher.AlphaVantageFetcher
+from algostack.adapters.av_fetcher import AlphaVantageFetcher
 
 
 class TestAlphaVantageIntegration:

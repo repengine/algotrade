@@ -17,8 +17,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Import our strategies
-from strategies.mean_reversion_equity import MeanReversionEquity
-from strategies.trend_following_multi import TrendFollowingMulti
+from algostack.strategies.mean_reversion_equity import MeanReversionEquity
+from algostack.strategies.trend_following_multi import TrendFollowingMulti
 
 
 class SimpleBacktester:
@@ -297,25 +297,25 @@ def main():
     # Find perfect strategies
     perfect_strategies = [r for r in results if r["perfect"]]
 
-    print("\n" + "=" * 80)
-    print("STRATEGY SEARCH COMPLETE")
-    print("=" * 80)
-    print(f"Total strategies tested: {len(results)}")
-    print(f"Perfect strategies found: {len(perfect_strategies)}")
+    logger.info("\n" + "=" * 80)
+    logger.info("STRATEGY SEARCH COMPLETE")
+    logger.info("=" * 80)
+    logger.info(f"Total strategies tested: {len(results)}")
+    logger.info(f"Perfect strategies found: {len(perfect_strategies)}")
 
     if perfect_strategies:
-        print(
+        logger.info(
             "\n🎉 PERFECT STRATEGIES (profitable EVERY month, beat benchmark EVERY month):"
         )
         for i, strategy in enumerate(perfect_strategies[:5]):  # Show top 5
-            print(f"\n#{i+1}:")
-            print(f"Strategy: {strategy['strategy']}")
-            print(f"Total Return: {strategy['total_return']:.2f}%")
-            print(f"Sharpe Ratio: {strategy['sharpe_ratio']:.2f}")
-            print(f"Max Drawdown: {strategy['max_drawdown']:.2f}%")
-            print(f"Avg Monthly Return: {strategy['avg_monthly_return']:.2f}%")
-            print(f"Avg Outperformance: {strategy['avg_outperformance']:.2f}%")
-            print(f"Config: {json.dumps(strategy['config'], indent=2)}")
+            logger.info(f"\n#{i+1}:")
+            logger.info(f"Strategy: {strategy['strategy']}")
+            logger.info(f"Total Return: {strategy['total_return']:.2f}%")
+            logger.info(f"Sharpe Ratio: {strategy['sharpe_ratio']:.2f}")
+            logger.info(f"Max Drawdown: {strategy['max_drawdown']:.2f}%")
+            logger.info(f"Avg Monthly Return: {strategy['avg_monthly_return']:.2f}%")
+            logger.info(f"Avg Outperformance: {strategy['avg_outperformance']:.2f}%")
+            logger.info(f"Config: {json.dumps(strategy['config'], indent=2)}")
 
         # Save winning config
         with open(f"WINNING_CONFIG_{timestamp}.json", "w") as f:
@@ -338,20 +338,20 @@ def main():
                 f,
                 indent=2,
             )
-        print(f"\n✅ Winning configuration saved to WINNING_CONFIG_{timestamp}.json")
+        logger.info(f"\n✅ Winning configuration saved to WINNING_CONFIG_{timestamp}.json")
     else:
         # Show best performers
-        print("\nNo perfect strategies found. Best performers:")
+        logger.info("\nNo perfect strategies found. Best performers:")
         for i, strategy in enumerate(results[:5]):
-            print(f"\n#{i+1}:")
-            print(f"Strategy: {strategy['strategy']}")
-            print(
+            logger.info(f"\n#{i+1}:")
+            logger.info(f"Strategy: {strategy['strategy']}")
+            logger.info(
                 f"Outperforming Months: {strategy['outperforming_months']}/{strategy['total_months']}"
             )
-            print(f"Total Return: {strategy['total_return']:.2f}%")
-            print(f"Sharpe Ratio: {strategy['sharpe_ratio']:.2f}")
+            logger.info(f"Total Return: {strategy['total_return']:.2f}%")
+            logger.info(f"Sharpe Ratio: {strategy['sharpe_ratio']:.2f}")
 
-    print("=" * 80)
+    logger.info("=" * 80)
 
 
 if __name__ == "__main__":

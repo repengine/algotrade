@@ -5,11 +5,11 @@ from datetime import datetime
 import numpy as np
 import pytest
 
-from core.portfolio import PortfolioEngine
-from core.risk import EnhancedRiskManager
-from strategies.base import Signal
-from strategies.mean_reversion_equity import MeanReversionEquity
-from strategies.trend_following_multi import TrendFollowingMulti
+from algostack.core.portfolio import PortfolioEngine
+from algostack.core.risk import EnhancedRiskManager
+from algostack.strategies.base import Signal
+from algostack.strategies.mean_reversion_equity import MeanReversionEquity
+from algostack.strategies.trend_following_multi import TrendFollowingMulti
 
 
 @pytest.mark.integration
@@ -27,13 +27,17 @@ class TestSystemIntegration:
             "strategies": {
                 "mean_reversion": {
                     "symbols": ["SPY", "QQQ"],
+                    "lookback_period": 20,
+                    "zscore_threshold": 2.0,
+                    "exit_zscore": 0.5,
                     "rsi_period": 2,
-                    "rsi_oversold": 10,
+                    "rsi_oversold": 10.0,
+                    "rsi_overbought": 90.0,
                 },
                 "trend_following": {
                     "symbols": ["SPY", "QQQ"],
                     "channel_period": 20,
-                    "adx_threshold": 25,
+                    "adx_threshold": 25.0,
                 },
             },
         }

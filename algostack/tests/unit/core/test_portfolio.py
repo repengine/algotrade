@@ -3,10 +3,11 @@
 from datetime import datetime
 from typing import Any
 
+import pandas as pd
 import pytest
 
-from core.portfolio import PortfolioEngine, Position
-from strategies.base import Signal
+from algostack.core.portfolio import PortfolioEngine, Position
+from algostack.strategies.base import Signal
 
 
 class TestPortfolioEngine:
@@ -159,7 +160,7 @@ class TestPortfolioEngine:
         """Test portfolio metrics calculation."""
         metrics = portfolio.calculate_portfolio_metrics()
 
-        assert metrics["total_equity"] == portfolio.initial_capital
+        assert metrics["current_equity"] == portfolio.initial_capital
         assert metrics["cash"] == portfolio.initial_capital
         assert metrics["positions_value"] == 0
         assert metrics["position_count"] == 0
@@ -189,8 +190,8 @@ class TestPortfolioEngine:
 
         # Mock market data
         market_data = {
-            "SPY": {"returns": [0.01, -0.005, 0.008]},
-            "QQQ": {"returns": [0.015, -0.01, 0.012]},
+            "SPY": pd.DataFrame({"returns": [0.01, -0.005, 0.008]}),
+            "QQQ": pd.DataFrame({"returns": [0.015, -0.01, 0.012]}),
         }
 
         allocations = portfolio.allocate_capital(signals, market_data)

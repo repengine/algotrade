@@ -16,8 +16,10 @@ Prerequisites:
 import asyncio
 import logging
 
-from core.live_engine import LiveTradingEngine, TradingMode
-from strategies.mean_reversion_equity import MeanReversionEquityStrategy
+from algostack.core.live_engine import LiveTradingEngine, TradingMode
+from algostack.strategies.mean_reversion_equity import MeanReversionEquityStrategy
+
+logger = logging.getLogger(__name__)
 
 
 async def main():
@@ -101,26 +103,26 @@ async def main():
     # Create engine
     engine = LiveTradingEngine(config)
 
-    print("=" * 60)
-    print("AlgoStack IBKR Live Trading Example")
-    print("=" * 60)
-    print("WARNING: This is LIVE TRADING with REAL MONEY!")
-    print("=" * 60)
-    print(f"Mode: {engine.mode}")
-    print(f"Strategies: {list(engine.strategies.keys())}")
-    print(f"Active Symbols: {engine._active_symbols}")
-    print(f"Initial Capital: ${config['portfolio_config']['initial_capital']:,.2f}")
-    print("=" * 60)
+    logger.warning("=" * 60)
+    logger.warning("AlgoStack IBKR Live Trading Example")
+    logger.warning("=" * 60)
+    logger.warning("WARNING: This is LIVE TRADING with REAL MONEY!")
+    logger.warning("=" * 60)
+    logger.info(f"Mode: {engine.mode}")
+    logger.info(f"Strategies: {list(engine.strategies.keys())}")
+    logger.info(f"Active Symbols: {engine._active_symbols}")
+    logger.info(f"Initial Capital: ${config['portfolio_config']['initial_capital']:,.2f}")
+    logger.info("=" * 60)
 
     # Confirmation prompt
     response = input(
         "\nAre you sure you want to start LIVE TRADING? (type 'YES' to confirm): "
     )
     if response != "YES":
-        print("Live trading cancelled.")
+        logger.info("Live trading cancelled.")
         return
 
-    print("\nChecking IBKR connection...")
+    logger.info("\nChecking IBKR connection...")
 
     try:
         # Test IBKR connection first
@@ -128,59 +130,59 @@ async def main():
         if ibkr_executor:
             connected = await ibkr_executor.connect()
             if not connected:
-                print("ERROR: Failed to connect to IBKR. Make sure:")
-                print("1. Client Portal Gateway is running")
-                print("2. You are authenticated")
-                print("3. Gateway URL is correct")
+                logger.error("ERROR: Failed to connect to IBKR. Make sure:")
+                logger.error("1. Client Portal Gateway is running")
+                logger.error("2. You are authenticated")
+                logger.error("3. Gateway URL is correct")
                 return
 
             # Get account info
             account_info = await ibkr_executor.get_account_info()
-            print(f"\nConnected to IBKR Account: {account_info.get('account_id')}")
-            print(f"Net Liquidation: ${account_info.get('net_liquidation', 0):,.2f}")
-            print(f"Buying Power: ${account_info.get('buying_power', 0):,.2f}")
+            logger.info(f"\nConnected to IBKR Account: {account_info.get('account_id')}")
+            logger.info(f"Net Liquidation: ${account_info.get('net_liquidation', 0):,.2f}")
+            logger.info(f"Buying Power: ${account_info.get('buying_power', 0):,.2f}")
 
             await ibkr_executor.disconnect()
 
-        print("\nStarting live trading engine...")
-        print("Press Ctrl+C to stop\n")
+        logger.info("\nStarting live trading engine...")
+        logger.info("Press Ctrl+C to stop\n")
 
         # Run engine
         await engine.start()
 
     except KeyboardInterrupt:
-        print("\n\nShutting down trading engine...")
+        logger.info("\n\nShutting down trading engine...")
         await engine.stop()
 
         # Print final statistics
-        print("\n" + "=" * 60)
-        print("Live Trading Session Summary")
-        print("=" * 60)
-        print(f"Total Signals: {engine.stats['total_signals']}")
-        print(f"Total Orders: {engine.stats['total_orders']}")
-        print(f"Total Fills: {engine.stats['total_fills']}")
-        print(f"Errors: {engine.stats['errors']}")
+        logger.info("\n" + "=" * 60)
+        logger.info("Live Trading Session Summary")
+        logger.info("=" * 60)
+        logger.info(f"Total Signals: {engine.stats['total_signals']}")
+        logger.info(f"Total Orders: {engine.stats['total_orders']}")
+        logger.info(f"Total Fills: {engine.stats['total_fills']}")
+        logger.info(f"Errors: {engine.stats['errors']}")
 
         # Get final positions
         positions = await engine.order_manager.get_positions()
         if positions:
-            print("\nFinal Positions:")
+            logger.info("\nFinal Positions:")
             for symbol, pos in positions.items():
-                print(f"  {symbol}: {pos.quantity} shares @ ${pos.average_cost:.2f}")
-                print(f"    Unrealized P&L: ${pos.unrealized_pnl:,.2f}")
+                logger.info(f"  {symbol}: {pos.quantity} shares @ ${pos.average_cost:.2f}")
+                logger.info(f"    Unrealized P&L: ${pos.unrealized_pnl:,.2f}")
 
-        print("=" * 60)
+        logger.info("=" * 60)
 
     except Exception as e:
-        print(f"\nERROR: {e}")
+        logger.error(f"\nERROR: {e}")
         await engine.stop()
 
 
 if __name__ == "__main__":
     # Additional safety check
-    print("\n" + "!" * 60)
-    print("! WARNING: This script will execute LIVE TRADES!")
-    print("! Only run this if you understand the risks!")
-    print("!" * 60 + "\n")
+    logger.warning("\n" + "!" * 60)
+    logger.warning("! WARNING: This script will execute LIVE TRADES!")
+    logger.warning("! Only run this if you understand the risks!")
+    logger.warning("!" * 60 + "\n")
 
     asyncio.run(main())

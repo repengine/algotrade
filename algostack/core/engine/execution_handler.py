@@ -9,10 +9,10 @@ import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Optional, Dict
+from typing import Any, Dict, Optional, Union
 
-from utils.logging import setup_logger
-from core.engine.order_manager import Order, OrderType
+from algostack.core.engine.order_manager import Order, OrderType
+from algostack.utils.logging import setup_logger
 
 
 class ExecutionAlgorithm(Enum):
@@ -65,34 +65,61 @@ class ExecutionHandler:
     - Execution analytics
     """
 
-    def __init__(self, order_manager: Any, market_data_provider: Optional[Any] = None) -> None:
+    def __init__(
+        self, 
+        order_manager: Optional[Any] = None, 
+        market_data_provider: Optional[Any] = None,
+        # Backward compatibility
+        executor: Optional[Any] = None
+    ) -> None:
         """
         Initialize execution handler.
 
         Args:
-            order_manager: Order manager instance
+            order_manager: Order manager instance (new API)
             market_data_provider: Market data provider for execution decisions
+            executor: Executor instance (backward compatibility)
         """
         self.logger = setup_logger(__name__)
-        self.order_manager = order_manager
-        self.market_data_provider = market_data_provider
+        
+        # Handle backward compatibility
+        if executor is not None:
+            # Old API - executor-based
+            self.executor = executor
+            self.order_manager = None
+            self.market_data_provider = None
+            # Add backward compatibility attributes
+            self.max_retries = 3
+            self.retry_delay = 1.0
+        else:
+            # New API - order manager based
+            self.order_manager = order_manager
+            self.market_data_provider = market_data_provider
+            self.executor = None
+            
         self.execution_plans: dict[str, ExecutionPlan] = {}
         self.active_executions: dict[str, asyncio.Task] = {}
         self._execution_lock = asyncio.Lock()
 
     async def execute_order(
-        self, order: Order, params: Optional[ExecutionParams] = None
-    ) -> ExecutionPlan:
+        self, order: Union[Order, Dict[str, Any]], params: Optional[ExecutionParams] = None
+    ) -> Union[ExecutionPlan, Dict[str, Any]]:
         """
         Execute an order using the specified algorithm.
 
         Args:
-            order: Order to execute
+            order: Order to execute (Order object or dict for backward compatibility)
             params: Execution parameters
 
         Returns:
-            Execution plan object
+            Execution plan object or dict for backward compatibility
         """
+        # Handle backward compatibility
+        if self.executor is not None:
+            # Old API - simple executor-based execution
+            return await self._execute_order_legacy(order)
+        
+        # New API - advanced execution algorithms
         params = params or ExecutionParams()
 
         # Create execution plan
@@ -446,6 +473,90 @@ class ExecutionHandler:
             and (datetime.now() - start_time).total_seconds() < timeout
         ):
             await asyncio.sleep(1)
+
+    async def _execute_order_legacy(self, order: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute order using legacy executor API with retry logic."""
+        retries = 0
+        last_error = None
+        
+        while retries < self.max_retries:
+            try:
+                # Call executor's place_order method
+                result = await self.executor.place_order(order)
+                return result
+            except Exception as e:
+                last_error = e
+                retries += 1
+                if retries < self.max_retries:
+                    self.logger.warning(f"Execution attempt {retries} failed: {e}, retrying...")
+                    await asyncio.sleep(self.retry_delay)
+                else:
+                    self.logger.error(f"All execution attempts failed: {e}")
+                    raise
+        
+        # Should not reach here
+        raise last_error if last_error else Exception("Execution failed")
+    
+    async def execute_with_retry(self, order: Dict[str, Any], max_retries: Optional[int] = None) -> Dict[str, Any]:
+        """Execute order with retry logic (backward compatibility method)."""
+        if max_retries is not None:
+            old_max_retries = self.max_retries
+            self.max_retries = max_retries
+            try:
+                return await self._execute_order_legacy(order)
+            finally:
+                self.max_retries = old_max_retries
+        else:
+            return await self._execute_order_legacy(order)
+    
+    def calculate_slippage(self, order: Union[Dict[str, Any], float], fill: Optional[Dict[str, Any]] = None, side: Optional[str] = None) -> Union[Dict[str, Any], float]:
+        """Calculate slippage for an execution (backward compatibility method)."""
+        # Handle new API (dict inputs)
+        if isinstance(order, dict) and fill is not None:
+            expected_price = order.get('expected_price', order.get('price', 0))
+            actual_price = fill.get('avg_fill_price', 0)
+            side = order.get('side', 'BUY')
+            quantity = fill.get('filled_quantity', 0)
+            
+            # Calculate slippage amount per share
+            if side.upper() == 'BUY':
+                # For buys, negative slippage means we paid more than expected
+                slippage_amount = expected_price - actual_price
+            else:
+                # For sells, negative slippage means we received less than expected
+                slippage_amount = actual_price - expected_price
+            
+            # Calculate percentage
+            slippage_pct = (slippage_amount / expected_price * 100) if expected_price > 0 else 0
+            
+            # Calculate total cost impact
+            slippage_cost = slippage_amount * quantity
+            
+            return {
+                'amount': slippage_amount,
+                'percentage': slippage_pct,
+                'cost': slippage_cost
+            }
+        
+        # Handle old API (individual parameters)
+        else:
+            expected_price = order
+            actual_price = fill if fill is not None else 0
+            side = side or 'BUY'
+            
+            if side.upper() == 'BUY':
+                # For buys, positive slippage means we paid more than expected
+                return (actual_price - expected_price) / expected_price
+            else:
+                # For sells, positive slippage means we received less than expected
+                return (expected_price - actual_price) / expected_price
+    
+    async def smart_route_order(self, order: Dict[str, Any], venues: list[str]) -> Dict[str, Any]:
+        """Smart route order to best venue (backward compatibility method)."""
+        # For now, just use the first venue or execute normally
+        if venues and hasattr(self.executor, 'set_venue'):
+            self.executor.set_venue(venues[0])
+        return await self._execute_order_legacy(order)
 
     def get_execution_stats(self, order_id: str) -> Optional[Dict[str, Any]]:
         """Get execution statistics for an order"""

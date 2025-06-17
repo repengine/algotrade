@@ -16,7 +16,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # from core.data_handler import DataHandler
 # from adapters.yf_fetcher import YFinanceFetcher
-from strategies.futures_momentum import FuturesMomentum
+from algostack.strategies.futures_momentum import FuturesMomentum
 
 # from utils.logging import setup_logging
 

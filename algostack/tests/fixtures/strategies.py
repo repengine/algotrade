@@ -3,11 +3,12 @@ Strategy fixtures for testing.
 
 Provides mock strategies and strategy configurations for testing.
 """
-import pytest
-import pandas as pd
-import numpy as np
 from datetime import datetime, timedelta
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
+
+import numpy as np
+import pandas as pd
+import pytest
 
 
 class MockSignal:
@@ -23,7 +24,7 @@ class MockSignal:
         self.price = price
         self.atr = atr or price * 0.02  # Default 2% ATR
         self.metadata = metadata or {}
-        
+
     def __repr__(self):
         return f"Signal({self.symbol} {self.direction} @ {self.price:.2f}, strength={self.strength:.2f})"
 
@@ -34,7 +35,7 @@ class MockStrategy:
         self.strategy_id = strategy_id
         self.params = params or {}
         self.signals_generated = 0
-        
+
     def generate_signals(self, data: pd.DataFrame) -> List[MockSignal]:
         """Generate signals based on data."""
         raise NotImplementedError("Subclasses must implement generate_signals")
@@ -44,12 +45,12 @@ class AlwaysBuyStrategy(MockStrategy):
     """Strategy that always generates buy signals."""
     def __init__(self):
         super().__init__("always_buy")
-        
+
     def generate_signals(self, data: pd.DataFrame) -> List[MockSignal]:
         """Generate buy signal on every bar."""
         signals = []
         symbol = data.attrs.get('symbol', 'TEST')
-        
+
         for i in range(len(data)):
             self.signals_generated += 1
             signals.append(MockSignal(
@@ -61,7 +62,7 @@ class AlwaysBuyStrategy(MockStrategy):
                 price=data.iloc[i]['close'],
                 metadata={'bar_index': i}
             ))
-            
+
         return signals
 
 
@@ -72,25 +73,25 @@ class MeanReversionMockStrategy(MockStrategy):
             'lookback': lookback,
             'z_threshold': z_threshold
         })
-        
+
     def generate_signals(self, data: pd.DataFrame) -> List[MockSignal]:
         """Generate mean reversion signals."""
         signals = []
         symbol = data.attrs.get('symbol', 'TEST')
         lookback = self.params['lookback']
         z_threshold = self.params['z_threshold']
-        
+
         if len(data) < lookback:
             return signals
-            
+
         # Calculate rolling statistics
         rolling_mean = data['close'].rolling(lookback).mean()
         rolling_std = data['close'].rolling(lookback).std()
         z_score = (data['close'] - rolling_mean) / rolling_std
-        
+
         for i in range(lookback, len(data)):
             z = z_score.iloc[i]
-            
+
             # Generate signals at extremes
             if z < -z_threshold:  # Oversold
                 self.signals_generated += 1
@@ -114,7 +115,7 @@ class MeanReversionMockStrategy(MockStrategy):
                     price=data.iloc[i]['close'],
                     metadata={'z_score': z, 'mean': rolling_mean.iloc[i]}
                 ))
-                
+
         return signals
 
 
@@ -125,30 +126,30 @@ class TrendFollowingMockStrategy(MockStrategy):
             'fast_ma': fast_ma,
             'slow_ma': slow_ma
         })
-        
+
     def generate_signals(self, data: pd.DataFrame) -> List[MockSignal]:
         """Generate trend following signals based on MA crossovers."""
         signals = []
         symbol = data.attrs.get('symbol', 'TEST')
         fast_ma = self.params['fast_ma']
         slow_ma = self.params['slow_ma']
-        
+
         if len(data) < slow_ma:
             return signals
-            
+
         # Calculate moving averages
         fast = data['close'].rolling(fast_ma).mean()
         slow = data['close'].rolling(slow_ma).mean()
-        
+
         # Find crossovers
         position = 0  # Track current position
-        
+
         for i in range(slow_ma, len(data)):
             prev_fast = fast.iloc[i-1]
             prev_slow = slow.iloc[i-1]
             curr_fast = fast.iloc[i]
             curr_slow = slow.iloc[i]
-            
+
             # Bullish crossover
             if prev_fast <= prev_slow and curr_fast > curr_slow and position <= 0:
                 self.signals_generated += 1
@@ -162,7 +163,7 @@ class TrendFollowingMockStrategy(MockStrategy):
                     price=data.iloc[i]['close'],
                     metadata={'fast_ma': curr_fast, 'slow_ma': curr_slow}
                 ))
-                
+
             # Bearish crossover
             elif prev_fast >= prev_slow and curr_fast < curr_slow and position >= 0:
                 self.signals_generated += 1
@@ -176,7 +177,7 @@ class TrendFollowingMockStrategy(MockStrategy):
                     price=data.iloc[i]['close'],
                     metadata={'fast_ma': curr_fast, 'slow_ma': curr_slow}
                 ))
-                
+
         return signals
 
 
@@ -189,12 +190,12 @@ class RandomStrategy(MockStrategy):
         })
         if seed:
             np.random.seed(seed)
-            
+
     def generate_signals(self, data: pd.DataFrame) -> List[MockSignal]:
         """Generate random signals."""
         signals = []
         symbol = data.attrs.get('symbol', 'TEST')
-        
+
         for i in range(len(data)):
             if np.random.random() < self.params['signal_frequency']:
                 self.signals_generated += 1
@@ -207,7 +208,7 @@ class RandomStrategy(MockStrategy):
                     price=data.iloc[i]['close'],
                     metadata={'random': True}
                 ))
-                
+
         return signals
 
 
@@ -316,7 +317,7 @@ def sample_signals():
     """Generate sample signals for testing."""
     base_time = datetime.now()
     symbols = ['AAPL', 'GOOGL', 'MSFT']
-    
+
     signals = []
     for i in range(10):
         signals.append(MockSignal(
@@ -328,7 +329,7 @@ def sample_signals():
             price=100 + i * 2,
             metadata={'index': i}
         ))
-    
+
     return signals
 
 
@@ -338,7 +339,7 @@ def conflicting_signals():
     timestamp = datetime.now()
     symbol = 'AAPL'
     price = 150.0
-    
+
     return [
         MockSignal(timestamp, symbol, 'LONG', 0.8, 'strategy_1', price),
         MockSignal(timestamp, symbol, 'SHORT', 0.6, 'strategy_2', price),
@@ -351,7 +352,7 @@ def signal_history():
     """Generate historical signals for backtesting."""
     dates = pd.date_range(end=datetime.now(), periods=30, freq='D')
     signals = []
-    
+
     for i, date in enumerate(dates):
         if i % 3 == 0:  # Signal every 3 days
             signals.append(MockSignal(
@@ -363,7 +364,7 @@ def signal_history():
                 price=400 + i,
                 metadata={'day': i}
             ))
-    
+
     return signals
 
 
@@ -372,38 +373,38 @@ def signal_history():
 @pytest.fixture
 def strategy_tester():
     """Helper for testing strategies."""
-    def test_strategy(strategy: MockStrategy, data: pd.DataFrame, 
+    def test_strategy(strategy: MockStrategy, data: pd.DataFrame,
                      expected_signal_count: Optional[int] = None,
                      check_directions: bool = True) -> List[MockSignal]:
         """
         Test a strategy and return signals with basic validation.
-        
+
         Args:
             strategy: Strategy to test
             data: Market data
             expected_signal_count: Expected number of signals (if known)
             check_directions: Whether to validate signal directions
-            
+
         Returns:
             List of generated signals
         """
         signals = strategy.generate_signals(data)
-        
+
         # Basic validation
         assert isinstance(signals, list), "Signals must be a list"
-        
+
         for signal in signals:
             assert isinstance(signal, MockSignal), "Each signal must be a MockSignal"
             assert signal.direction in ['LONG', 'SHORT'], f"Invalid direction: {signal.direction}"
             assert -1 <= signal.strength <= 1, f"Invalid strength: {signal.strength}"
             assert signal.price > 0, f"Invalid price: {signal.price}"
-            
+
         if expected_signal_count is not None:
             assert len(signals) == expected_signal_count, \
                 f"Expected {expected_signal_count} signals, got {len(signals)}"
-        
+
         return signals
-    
+
     return test_strategy
 
 
@@ -413,7 +414,7 @@ def signal_analyzer():
     def analyze_signals(signals: List[MockSignal]) -> Dict[str, Any]:
         """
         Analyze a list of signals and return statistics.
-        
+
         Returns:
             Dictionary with signal statistics
         """
@@ -426,10 +427,10 @@ def signal_analyzer():
                 'symbols': [],
                 'strategies': [],
             }
-        
+
         long_signals = [s for s in signals if s.direction == 'LONG']
         short_signals = [s for s in signals if s.direction == 'SHORT']
-        
+
         return {
             'count': len(signals),
             'long_count': len(long_signals),
@@ -437,10 +438,10 @@ def signal_analyzer():
             'avg_strength': np.mean([s.strength for s in signals]),
             'min_strength': min(s.strength for s in signals),
             'max_strength': max(s.strength for s in signals),
-            'symbols': list(set(s.symbol for s in signals)),
-            'strategies': list(set(s.strategy_id for s in signals)),
-            'time_range': (min(s.timestamp for s in signals), 
+            'symbols': list({s.symbol for s in signals}),
+            'strategies': list({s.strategy_id for s in signals}),
+            'time_range': (min(s.timestamp for s in signals),
                           max(s.timestamp for s in signals)),
         }
-    
+
     return analyze_signals

@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 """Comprehensive test suite for risk.py module - 100% coverage."""
 
-import logging
-from datetime import datetime, timedelta
-from typing import Any, Optional
-from unittest.mock import MagicMock, Mock, patch
+from datetime import datetime
+from typing import Any
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from core.risk import EnhancedRiskManager, RiskManager, RiskMetrics
-from strategies.base import Signal
+from algostack.core.risk import EnhancedRiskManager, RiskManager, RiskMetrics
+from algostack.strategies.base import Signal
 
 
 class TestRiskMetrics:
@@ -272,7 +271,7 @@ class TestEnhancedRiskManager:
             mock_result.success = True
             mock_result.x = np.array([0.5, 0.3, 0.2])
             mock_minimize.return_value = mock_result
-            
+
             optimal_weights = risk_manager.portfolio_optimization(
                 sample_returns_df, current_weights, target_return=0.10
             )
@@ -629,7 +628,7 @@ class TestEnhancedRiskManager:
             downside_deviation=0.01,
             portfolio_volatility=0.15,
         )
-        
+
         with patch.object(risk_manager, 'calculate_risk_metrics', return_value=low_dd_metrics):
             risk_manager.update_risk_state(mock_portfolio)
             assert risk_manager.is_risk_on is True
@@ -706,7 +705,7 @@ class TestEnhancedRiskManager:
         assert risk_manager.historical_metrics[0] == metrics
 
         # Test limit enforcement
-        for i in range(150):
+        for _i in range(150):
             risk_manager.update_historical_metrics(metrics)
 
         assert len(risk_manager.historical_metrics) == 100
@@ -822,7 +821,7 @@ class TestEnhancedRiskManager:
         mock_portfolio.get_position_weight = Mock(return_value=0.20)
         size = risk_manager._apply_risk_limits(0.10, "AAPL", mock_portfolio)
         assert size == 0  # Already at max
-        
+
         # Test when position would exceed limit (line 598)
         mock_portfolio.get_position_weight = Mock(return_value=0.25)  # Already over limit
         size = risk_manager._apply_risk_limits(0.10, "AAPL", mock_portfolio)
@@ -846,7 +845,7 @@ class TestEnhancedRiskManager:
             risk_manager.trigger_kill_switch()
             assert risk_manager.is_risk_on is False
             mock_logger.critical.assert_called_once()
-            
+
         # Test the full emergency stop behavior
         risk_manager.is_risk_on = True  # Reset
         risk_manager.trigger_kill_switch()
@@ -871,7 +870,13 @@ class TestModulePlaceholders:
 
     def test_placeholder_types(self):
         """Test that placeholder types exist."""
-        from core.risk import RiskLimits, PositionRisk, PortfolioRisk, RiskAlert, RiskViolation
+        from core.risk import (
+            PortfolioRisk,
+            PositionRisk,
+            RiskAlert,
+            RiskLimits,
+            RiskViolation,
+        )
 
         # These should all be dict aliases
         assert RiskLimits is dict
@@ -883,7 +888,7 @@ class TestModulePlaceholders:
 
 class TestMissingCoverage:
     """Additional tests to achieve 100% coverage."""
-    
+
     @pytest.fixture
     def risk_manager(self):
         """Create risk manager with standard config."""
@@ -896,7 +901,7 @@ class TestMissingCoverage:
             "base_position_size": 0.02,
         }
         return EnhancedRiskManager(config)
-    
+
     def test_get_risk_adjusted_sizes_empty_market_data_with_correlation(self, risk_manager):
         """Test risk-adjusted sizing when symbol not in correlation matrix."""
         signals = [
@@ -909,20 +914,20 @@ class TestMissingCoverage:
                 price=150.0,
             )
         ]
-        
+
         # Set up correlation matrix without NEW_SYMBOL
         risk_manager.correlation_matrix = pd.DataFrame(
             {"AAPL": [1.0, 0.8], "MSFT": [0.8, 1.0]}, index=["AAPL", "MSFT"]
         )
-        
+
         mock_portfolio = Mock()
         market_data = {}
-        
+
         sizes = risk_manager.get_risk_adjusted_sizes(signals, mock_portfolio, market_data)
-        
+
         assert "NEW_SYMBOL" in sizes
         assert sizes["NEW_SYMBOL"] > 0
-    
+
     def test_portfolio_optimization_with_risk_parity_flag(self, risk_manager):
         """Test that risk_parity parameter is handled but not implemented."""
         returns = pd.DataFrame(
@@ -930,12 +935,12 @@ class TestMissingCoverage:
             columns=['A', 'B', 'C']
         )
         current_weights = pd.Series([0.4, 0.3, 0.3], index=['A', 'B', 'C'])
-        
+
         # This should work even though risk_parity is ignored
         weights = risk_manager.portfolio_optimization(
             returns, current_weights, risk_parity=True
         )
-        
+
         assert len(weights) == 3
         assert abs(weights.sum() - 1.0) < 0.001
 

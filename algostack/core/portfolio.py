@@ -9,8 +9,8 @@ from typing import Any, Optional
 import numpy as np
 import pandas as pd
 
-from strategies.base import RiskContext, Signal
-from utils.constants import (
+from algostack.strategies.base import RiskContext, Signal
+from algostack.utils.constants import (
     DEFAULT_INITIAL_CAPITAL,
     DEFAULT_KELLY_FRACTION,
     MAX_KELLY_FRACTION,
@@ -54,15 +54,48 @@ class Position:
         """P&L as percentage of entry value."""
         entry_value = abs(self.quantity) * self.entry_price
         return (self.unrealized_pnl / entry_value) * 100 if entry_value > 0 else 0
+    
+    @property
+    def avg_price(self) -> float:
+        """Average price (backward compatibility alias for entry_price)."""
+        return self.entry_price
+    
+    @avg_price.setter
+    def avg_price(self, value: float) -> None:
+        """Set average price (backward compatibility)."""
+        self.entry_price = value
 
 
 class PortfolioEngine:
     """Manages portfolio allocation, risk, and position sizing across strategies."""
 
-    def __init__(self, config: dict[str, Any]) -> None:
+    def __init__(
+        self, 
+        config: Optional[dict[str, Any]] = None,
+        # Backward compatibility parameters
+        initial_capital: Optional[float] = None,
+        max_positions: Optional[int] = None,
+        position_size_method: Optional[str] = None,
+        **kwargs
+    ) -> None:
+        # Handle backward compatibility
+        if config is None and initial_capital is not None:
+            # Old API - build config from parameters
+            config = {
+                "initial_capital": initial_capital,
+                "max_positions": max_positions or 10,
+                "position_size_method": position_size_method or "equal_weight",
+                **kwargs
+            }
+        elif config is None:
+            config = {}
+            
         self.config = config
         self.initial_capital = config.get("initial_capital", DEFAULT_INITIAL_CAPITAL)
         self.current_equity = self.initial_capital
+        self.cash = self.initial_capital  # Backward compatibility
+        self.max_positions = config.get("max_positions", 10)  # Backward compatibility
+        self.position_size_method = config.get("position_size_method", "equal_weight")  # Backward compatibility
         self.positions: dict[str, Position] = {}  # symbol -> Position
         self.strategy_allocations: dict[str, float] = {}  # strategy -> allocation
         self.performance_history: list[dict[str, Any]] = []
@@ -76,6 +109,10 @@ class PortfolioEngine:
             "max_correlation": config.get("max_correlation", 0.70),
             "margin_buffer": config.get("margin_buffer", 0.25),
         }
+        
+        # Backward compatibility attributes
+        self.trades: list[dict[str, Any]] = []  # Trade history
+        self.equity_curve: list[float] = [self.initial_capital]  # Equity history
 
         # Risk tracking
         self.peak_equity = self.initial_capital
@@ -503,7 +540,7 @@ class PortfolioEngine:
             # Kelly formula: f = p - q/b
             # where p = win_rate, q = 1-p, b = avg_win/avg_loss
             b = avg_win / avg_loss
-            
+
             # Handle edge case where b is 0 (no average win)
             if b == 0:
                 kelly = 0  # No edge, no allocation
@@ -685,6 +722,54 @@ class PortfolioEngine:
     def cash(self) -> float:
         """Available cash in the portfolio."""
         return self.current_equity
+    
+    @cash.setter
+    def cash(self, value: float) -> None:
+        """Set available cash (backward compatibility)."""
+        self.current_equity = value
+    
+    @property
+    def realized_pnl(self) -> float:
+        """Calculate realized P&L from closed trades (backward compatibility)."""
+        total_pnl = 0.0
+        
+        # Group trades by symbol to calculate P&L
+        symbol_trades: dict[str, list] = {}
+        for trade in self.trades:
+            symbol = trade.get('symbol') or getattr(trade, 'symbol', None)
+            if symbol:
+                if symbol not in symbol_trades:
+                    symbol_trades[symbol] = []
+                symbol_trades[symbol].append(trade)
+        
+        # Calculate P&L for each symbol - only count closed positions
+        for symbol, trades in symbol_trades.items():
+            buy_quantity = 0.0
+            sell_quantity = 0.0
+            buy_value = 0.0
+            sell_value = 0.0
+            
+            for trade in trades:
+                side = trade.get('side') or getattr(trade, 'side', 'BUY')
+                quantity = trade.get('quantity') or getattr(trade, 'quantity', 0)
+                price = trade.get('price') or getattr(trade, 'price', 0)
+                commission = trade.get('commission') or getattr(trade, 'commission', 0)
+                
+                if side == 'BUY':
+                    buy_quantity += quantity
+                    buy_value += quantity * price + commission
+                else:
+                    sell_quantity += quantity
+                    sell_value += quantity * price - commission
+            
+            # Only calculate P&L on the closed portion (minimum of buy and sell quantities)
+            closed_quantity = min(buy_quantity, sell_quantity)
+            if closed_quantity > 0 and buy_quantity > 0:
+                avg_buy_price = buy_value / buy_quantity
+                avg_sell_price = sell_value / sell_quantity if sell_quantity > 0 else 0
+                total_pnl += closed_quantity * (avg_sell_price - avg_buy_price)
+        
+        return total_pnl
 
     def update_position(self, symbol: str, quantity: float, avg_price: float, current_price: float) -> None:
         """Update or create a position with current market data."""
@@ -711,17 +796,598 @@ class PortfolioEngine:
 
     def calculate_metrics(self) -> dict[str, Any]:
         """Calculate and return portfolio performance metrics."""
-        return self.calculate_portfolio_metrics()
+        # Get basic portfolio metrics first
+        base_metrics = self.calculate_portfolio_metrics()
+        
+        # Calculate performance metrics from equity curve and trades
+        if len(self.equity_curve) < 2:
+            return {
+                'total_return': 0.0,
+                'sharpe_ratio': 0.0,
+                'max_drawdown': 0.0,
+                'win_rate': 0.0,
+                'profit_factor': 0.0,
+                'avg_win': 0.0,
+                'avg_loss': 0.0,
+                **base_metrics
+            }
+        
+        # Calculate returns from equity curve
+        equity_series = pd.Series(self.equity_curve)
+        returns = equity_series.pct_change().dropna()
+        
+        # Total return
+        total_return = (self.equity_curve[-1] - self.initial_capital) / self.initial_capital
+        
+        # Sharpe ratio
+        if len(returns) > 1 and returns.std() > 0:
+            sharpe_ratio = (returns.mean() / returns.std()) * np.sqrt(252)
+        else:
+            sharpe_ratio = 0.0
+        
+        # Max drawdown
+        cumulative = (1 + returns).cumprod()
+        running_max = cumulative.expanding().max()
+        drawdown = (cumulative - running_max) / running_max
+        max_drawdown = abs(drawdown.min()) if len(drawdown) > 0 else 0.0
+        
+        # Trade statistics
+        if self.trades:
+            # Calculate P&L for each trade
+            wins = []
+            losses = []
+            
+            # Group trades by symbol to match buys and sells
+            symbol_trades = {}
+            for trade in self.trades:
+                symbol = trade.symbol
+                if symbol not in symbol_trades:
+                    symbol_trades[symbol] = []
+                symbol_trades[symbol].append(trade)
+            
+            # Calculate P&L for each symbol
+            for symbol, trades in symbol_trades.items():
+                buy_value = 0
+                sell_value = 0
+                for trade in trades:
+                    if trade.side == 'BUY':
+                        buy_value += trade.quantity * trade.price + trade.commission
+                    else:  # SELL
+                        sell_value += trade.quantity * trade.price - trade.commission
+                
+                pnl = sell_value - buy_value
+                if pnl > 0:
+                    wins.append(pnl)
+                elif pnl < 0:
+                    losses.append(abs(pnl))
+            
+            # Calculate trade metrics
+            total_trades = len(wins) + len(losses)
+            win_rate = len(wins) / total_trades if total_trades > 0 else 0.0
+            
+            avg_win = sum(wins) / len(wins) if wins else 0.0
+            avg_loss = sum(losses) / len(losses) if losses else 0.0
+            
+            gross_profit = sum(wins)
+            gross_loss = sum(losses)
+            profit_factor = gross_profit / gross_loss if gross_loss > 0 else 0.0
+        else:
+            win_rate = 0.0
+            avg_win = 0.0
+            avg_loss = 0.0
+            profit_factor = 0.0
+        
+        return {
+            'total_return': total_return,
+            'sharpe_ratio': sharpe_ratio,
+            'max_drawdown': max_drawdown,
+            'win_rate': win_rate,
+            'profit_factor': profit_factor,
+            'avg_win': avg_win,
+            'avg_loss': avg_loss,
+            **base_metrics
+        }
 
     def calculate_daily_pnl(self) -> float:
         """Calculate today's P&L."""
         # Simple implementation - in production this would track intraday changes
         total_pnl = sum(pos.unrealized_pnl for pos in self.positions.values())
         return total_pnl
+    
+    # Backward compatibility methods
+    def add_position(self, trade: 'Trade') -> None:
+        """Add a new position or add to existing position (backward compatibility)."""
+        symbol = trade.get('symbol') or getattr(trade, 'symbol', None)
+        quantity = trade.get('quantity') or getattr(trade, 'quantity', 0)
+        price = trade.get('price') or getattr(trade, 'price', 0)
+        side = trade.get('side') or getattr(trade, 'side', 'BUY')
+        commission = trade.get('commission') or getattr(trade, 'commission', 0)
+        slippage = trade.get('slippage') or getattr(trade, 'slippage', 0)
+        
+        # Deduct commission and slippage from cash
+        self.cash -= commission + slippage
+        
+        # Process based on side
+        if side == 'BUY':
+            # Deduct cost from cash
+            cost = quantity * price
+            self.cash -= cost
+            
+            if symbol in self.positions:
+                # Update existing position
+                position = self.positions[symbol]
+                old_value = position.quantity * position.entry_price
+                new_value = quantity * price
+                total_quantity = position.quantity + quantity
+                position.quantity = total_quantity
+                position.entry_price = (old_value + new_value) / total_quantity if total_quantity != 0 else 0
+                position.current_price = price
+            else:
+                # Create new position
+                self.positions[symbol] = Position(
+                    symbol=symbol,
+                    strategy_id="unknown",
+                    direction="LONG",
+                    quantity=quantity,
+                    entry_price=price,
+                    entry_time=datetime.now(),
+                    current_price=price,
+                )
+        else:  # SELL
+            if symbol in self.positions:
+                # Reduce existing long position
+                position = self.positions[symbol]
+                if position.direction == "LONG":
+                    # Add proceeds to cash
+                    proceeds = quantity * price
+                    self.cash += proceeds
+                    
+                    position.quantity -= quantity
+                    if position.quantity <= 0:
+                        del self.positions[symbol]
+                else:  # SHORT position
+                    # Adding to short position (selling more)
+                    cost = quantity * price
+                    self.cash += cost  # Receive cash from short sale
+                    
+                    old_value = abs(position.quantity) * position.entry_price
+                    new_value = quantity * price
+                    total_quantity = abs(position.quantity) + quantity
+                    position.quantity = -total_quantity  # Negative for short
+                    position.entry_price = (old_value + new_value) / total_quantity if total_quantity != 0 else 0
+                    position.current_price = price
+            else:
+                # Opening a new short position
+                proceeds = quantity * price
+                self.cash += proceeds  # Receive cash from short sale
+                
+                self.positions[symbol] = Position(
+                    symbol=symbol,
+                    strategy_id="unknown", 
+                    direction="SHORT",
+                    quantity=-quantity,  # Negative for short
+                    entry_price=price,
+                    entry_time=datetime.now(),
+                    current_price=price,
+                )
+        
+        # Add to trades history
+        self.trades.append(trade)
+        
+        # Update equity curve
+        self.equity_curve.append(self.get_portfolio_value())
+    
+    def get_portfolio_value(self) -> float:
+        """Get total portfolio value (backward compatibility)."""
+        total = self.cash
+        
+        for pos in self.positions.values():
+            if pos.direction == "LONG":
+                # Add long position value
+                total += pos.market_value
+            else:  # SHORT
+                # For short positions, we have the original proceeds but owe the current value
+                # P&L = entry_value - current_value
+                # Net position = proceeds - current_obligation
+                entry_value = abs(pos.quantity) * pos.entry_price
+                current_value = abs(pos.quantity) * pos.current_price
+                # We already have the proceeds in cash, so just subtract unrealized loss
+                total -= (current_value - entry_value)
+        
+        return total
+    
+    def update_market_values(self, prices: dict[str, float]) -> None:
+        """Update market values of positions (backward compatibility)."""
+        self.update_market_prices(prices)
+    
+    def close_position(self, symbol_or_trade, quantity: Optional[float] = None, price: Optional[float] = None, 
+                      commission: float = 0.0, timestamp: Optional[datetime] = None) -> Optional['Trade']:
+        """Close position or reduce position size (backward compatibility)."""
+        # Handle Trade object input
+        if hasattr(symbol_or_trade, 'symbol') or isinstance(symbol_or_trade, dict):
+            trade_obj = symbol_or_trade
+            symbol = trade_obj.get('symbol') or getattr(trade_obj, 'symbol', None)
+            quantity = trade_obj.get('quantity') or getattr(trade_obj, 'quantity', 0)
+            price = trade_obj.get('price') or getattr(trade_obj, 'price', 0)
+            commission = trade_obj.get('commission') or getattr(trade_obj, 'commission', 0)
+            timestamp = trade_obj.get('timestamp') or getattr(trade_obj, 'timestamp', None)
+            
+            # Process as a sell trade
+            self.add_position(trade_obj)
+            return trade_obj
+        else:
+            # Handle individual parameters
+            symbol = symbol_or_trade
+            
+        if symbol not in self.positions:
+            return None
+        
+        position = self.positions[symbol]
+        
+        # Create trade record
+        trade = Trade(
+            symbol=symbol,
+            quantity=quantity,
+            price=price,
+            side='SELL' if position.direction == 'LONG' else 'BUY',
+            timestamp=timestamp or datetime.now(),
+            commission=commission
+        )
+        
+        # Calculate P&L
+        if position.direction == 'LONG':
+            pnl = quantity * (price - position.entry_price) - commission
+        else:
+            pnl = quantity * (position.entry_price - price) - commission
+        
+        # Update cash
+        self.cash += quantity * price - commission
+        
+        # Update position
+        position.quantity -= quantity
+        if position.quantity <= 0:
+            del self.positions[symbol]
+        
+        # Add to trades
+        self.trades.append(trade)
+        
+        # Update equity
+        self.equity_curve.append(self.get_portfolio_value())
+        
+        return trade
+    
+    def get_open_positions(self, side: Optional[str] = None) -> dict[str, 'PositionInfo']:
+        """Get all open positions (backward compatibility)."""
+        result = {}
+        for symbol, pos in self.positions.items():
+            # Filter by side if specified
+            if side is not None:
+                if side == 'LONG' and pos.direction != 'LONG':
+                    continue
+                elif side == 'SHORT' and pos.direction != 'SHORT':
+                    continue
+            
+            result[symbol] = PositionInfo(
+                symbol=symbol,
+                quantity=pos.quantity,
+                avg_price=pos.entry_price,
+                current_price=pos.current_price,
+                market_value=pos.market_value,
+                unrealized_pnl=pos.unrealized_pnl,
+                pnl_pct=pos.pnl_percentage
+            )
+        return result
+    
+    def reset(self) -> None:
+        """Reset portfolio to initial state (backward compatibility)."""
+        self.cash = self.initial_capital
+        self.current_equity = self.initial_capital
+        self.positions.clear()
+        self.trades.clear()
+        self.equity_curve = [self.initial_capital]
+        self.peak_equity = self.initial_capital
+        self.current_drawdown = 0.0
+        self.daily_pnl.clear()
+        self.is_risk_off = False
+        self.risk_off_until = None
+        self.strategy_kelly_fractions.clear()
+        self.strategy_performance.clear()
+    
+    def get_performance_metrics(self) -> dict[str, float]:
+        """Calculate portfolio performance metrics (backward compatibility)."""
+        if len(self.equity_curve) < 2:
+            return {
+                'total_return': 0.0,
+                'annualized_return': 0.0,
+                'sharpe_ratio': 0.0,
+                'max_drawdown': 0.0,
+                'win_rate': 0.0,
+                'profit_factor': 0.0
+            }
+        
+        # Calculate returns
+        equity_series = pd.Series(self.equity_curve)
+        returns = equity_series.pct_change().dropna()
+        
+        # Total return
+        total_return = (self.equity_curve[-1] - self.initial_capital) / self.initial_capital
+        
+        # Annualized return (simplified)
+        days = len(self.equity_curve)
+        annualized_return = (1 + total_return) ** (252 / days) - 1 if days > 0 else 0
+        
+        # Sharpe ratio
+        if len(returns) > 1 and returns.std() > 0:
+            sharpe_ratio = returns.mean() / returns.std() * np.sqrt(252)
+        else:
+            sharpe_ratio = 0.0
+        
+        # Max drawdown
+        max_drawdown = self.current_drawdown
+        
+        # Win rate from trades
+        if self.trades:
+            winning_trades = sum(1 for t in self.trades if self._calculate_trade_pnl(t) > 0)
+            win_rate = winning_trades / len(self.trades)
+        else:
+            win_rate = 0.0
+        
+        # Profit factor
+        gross_profit = sum(self._calculate_trade_pnl(t) for t in self.trades if self._calculate_trade_pnl(t) > 0)
+        gross_loss = abs(sum(self._calculate_trade_pnl(t) for t in self.trades if self._calculate_trade_pnl(t) < 0))
+        profit_factor = gross_profit / gross_loss if gross_loss > 0 else 0.0
+        
+        return {
+            'total_return': total_return,
+            'annualized_return': annualized_return,
+            'sharpe_ratio': sharpe_ratio,
+            'max_drawdown': max_drawdown,
+            'win_rate': win_rate,
+            'profit_factor': profit_factor
+        }
+    
+    def _calculate_trade_pnl(self, trade: 'Trade') -> float:
+        """Calculate P&L for a trade (helper method)."""
+        # Simplified - would need more context in production
+        return 0.0  # Placeholder
+    
+    def calculate_position_size(self, symbol: str, price: float, signal_strength: float = 1.0,
+                               volatility: float = 0.02, win_rate: float = None, 
+                               avg_win_loss_ratio: float = None, risk_per_trade: float = 0.01,
+                               requested_allocation: float = None, **kwargs) -> int:
+        """Calculate position size based on method (backward compatibility)."""
+        # Use total portfolio value for position sizing, not just cash
+        available_capital = self.get_portfolio_value()
+        
+        if self.position_size_method == 'equal_weight':
+            position_value = available_capital / self.max_positions
+        elif self.position_size_method == 'kelly':
+            # Kelly sizing with provided or calculated parameters
+            if win_rate is not None and avg_win_loss_ratio is not None:
+                # Kelly formula: f = p - q/b
+                # where p = win_rate, q = 1-p, b = avg_win_loss_ratio
+                if avg_win_loss_ratio > 0:
+                    kelly_fraction = win_rate - (1 - win_rate) / avg_win_loss_ratio
+                    # Apply safety factor (half-Kelly)
+                    kelly_fraction = max(0, min(0.25, kelly_fraction * 0.5))
+                else:
+                    kelly_fraction = 0.1
+            else:
+                # Use default or calculate from trade history
+                kelly_fraction = self.strategy_kelly_fractions.get(symbol, 
+                                   self.strategy_kelly_fractions.get('default', 0.25))
+            position_value = available_capital * kelly_fraction * abs(signal_strength)
+        elif self.position_size_method == 'volatility':
+            # Volatility-based sizing
+            risk_amount = available_capital * risk_per_trade
+            # Position value = risk_amount / volatility, but we need shares
+            # So shares = risk_amount / (price * volatility)
+            shares = int(risk_amount / (price * volatility)) if price > 0 and volatility > 0 else 0
+            return shares  # Return early since we already calculated shares
+        else:
+            position_value = available_capital / self.max_positions
+        
+        # Apply requested allocation if provided
+        if requested_allocation is not None:
+            requested_value = available_capital * requested_allocation
+            position_value = min(position_value, requested_value)
+        
+        # Apply position limit if explicitly set (not for equal weight method)
+        if self.position_size_method != 'equal_weight':
+            if hasattr(self, 'max_position_size') and self.max_position_size is not None:
+                max_position_value = available_capital * self.max_position_size
+                position_value = min(position_value, max_position_value)
+            elif 'max_position_size' in self.risk_limits:
+                max_position_value = available_capital * self.risk_limits['max_position_size']
+                position_value = min(position_value, max_position_value)
+        
+        # Calculate shares
+        shares = int(position_value / price) if price > 0 else 0
+        
+        return shares
+    
+    def check_margin_requirements(self, required_margin: float) -> bool:
+        """Check if margin requirements are met (backward compatibility)."""
+        positions_value = sum(pos.market_value for pos in self.positions.values())
+        used_margin = positions_value
+        available_margin = self.current_equity * (1 - self.risk_limits['margin_buffer'])
+        
+        return used_margin + required_margin <= available_margin
+    
+    def get_state_snapshot(self) -> dict:
+        """Get portfolio state snapshot (backward compatibility)."""
+        unrealized_pnl = sum(pos.unrealized_pnl for pos in self.positions.values())
+        
+        return {
+            'timestamp': datetime.now().isoformat(),
+            'cash': self.cash,
+            'total_value': self.get_portfolio_value(),
+            'positions': {
+                symbol: {
+                    'quantity': pos.quantity,
+                    'avg_price': pos.entry_price,
+                    'current_price': pos.current_price,
+                    'unrealized_pnl': pos.unrealized_pnl
+                }
+                for symbol, pos in self.positions.items()
+            },
+            'metrics': self.calculate_portfolio_metrics(),
+            'trades_count': len(self.trades),
+            'realized_pnl': self.realized_pnl,
+            'unrealized_pnl': unrealized_pnl
+        }
+    
+    def update_position_price(self, symbol: str, price: float) -> None:
+        """Update position price (backward compatibility)."""
+        if symbol in self.positions:
+            self.positions[symbol].current_price = price
+    
+    def calculate_total_pnl(self) -> float:
+        """Calculate total P&L (backward compatibility)."""
+        unrealized = sum(pos.unrealized_pnl for pos in self.positions.values())
+        realized = self.realized_pnl
+        return unrealized + realized
+    
+    def add_position_method(self, symbol: str, quantity: float, price: float) -> None:
+        """Add position (backward compatibility alias)."""
+        trade = Trade(
+            symbol=symbol,
+            quantity=quantity,
+            price=price,
+            side='BUY',
+            timestamp=datetime.now()
+        )
+        self.add_position(trade)
+    
+    def can_add_position(self, symbol: str) -> bool:
+        """Check if we can add a new position for the symbol."""
+        # Can always add to existing position
+        if symbol in self.positions:
+            return True
+        
+        # Check max positions limit
+        if len(self.positions) >= self.max_positions:
+            return False
+        
+        return True
+    
+    def calculate_max_drawdown(self) -> float:
+        """Calculate maximum drawdown from equity curve."""
+        if len(self.equity_curve) < 2:
+            return 0.0
+            
+        equity_series = pd.Series(self.equity_curve)
+        running_max = equity_series.expanding().max()
+        drawdown = (equity_series - running_max) / running_max
+        
+        return float(drawdown.min())
+    
+    def calculate_sharpe_ratio(self, risk_free_rate: float = 0.02) -> float:
+        """Calculate Sharpe ratio from equity curve."""
+        if len(self.equity_curve) < 2:
+            return 0.0
+            
+        equity_series = pd.Series(self.equity_curve)
+        returns = equity_series.pct_change().dropna()
+        
+        if len(returns) < 1 or returns.std() == 0:
+            return 0.0
+            
+        excess_returns = returns - risk_free_rate / 252  # Daily risk-free rate
+        return float(excess_returns.mean() / returns.std() * np.sqrt(252))
+    
+    def calculate_sortino_ratio(self, target_return: float = 0.0) -> float:
+        """Calculate Sortino ratio from equity curve."""
+        if len(self.equity_curve) < 2:
+            return 0.0
+            
+        equity_series = pd.Series(self.equity_curve)
+        returns = equity_series.pct_change().dropna()
+        
+        if len(returns) < 1:
+            return 0.0
+            
+        # Calculate downside deviation
+        downside_returns = returns[returns < target_return]
+        
+        if len(downside_returns) == 0:
+            return float('inf')  # No downside
+            
+        downside_std = downside_returns.std()
+        
+        if downside_std == 0:
+            return float('inf')
+            
+        return float((returns.mean() - target_return) / downside_std * np.sqrt(252))
+    
+    def calculate_margin_requirements(self) -> float:
+        """Calculate total margin requirements for all positions."""
+        margin_req = 0.0
+        
+        for pos in self.positions.values():
+            if pos.direction == 'SHORT':
+                # Short positions require margin (typically 30-50%)
+                margin_req += pos.market_value * 0.3
+            # Long positions may also require margin in leveraged accounts
+            # but we'll assume cash account for now
+        
+        return margin_req
+    
+    def get_performance_attribution(self) -> dict[str, dict[str, float]]:
+        """Get performance attribution by symbol."""
+        attribution = {}
+        
+        for trade in self.trades:
+            symbol = trade.symbol
+            pnl = getattr(trade, 'pnl', 0.0)
+            
+            if symbol not in attribution:
+                attribution[symbol] = {
+                    'total_pnl': 0.0,
+                    'trade_count': 0
+                }
+            
+            attribution[symbol]['total_pnl'] += pnl
+            attribution[symbol]['trade_count'] += 1
+        
+        return attribution
+
+
+# Backward compatibility classes and aliases
+@dataclass
+class Trade:
+    """Trade record for backward compatibility."""
+    symbol: str
+    quantity: float
+    price: float
+    side: str
+    timestamp: datetime
+    commission: float = 0.0
+    pnl: float = 0.0  # Add pnl parameter for backward compatibility
+    slippage: float = 0.0  # Add slippage for transaction costs
+    
+    def __getitem__(self, key):
+        """Dict-like access for backward compatibility."""
+        return getattr(self, key)
+    
+    def get(self, key, default=None):
+        """Dict-like get for backward compatibility."""
+        return getattr(self, key, default)
+
+
+@dataclass  
+class PositionInfo:
+    """Position information for backward compatibility."""
+    symbol: str
+    quantity: float
+    avg_price: float
+    current_price: float
+    market_value: float
+    unrealized_pnl: float
+    pnl_pct: float
 
 
 # Aliases for backward compatibility
 Portfolio = PortfolioEngine
 PortfolioMetrics = dict  # Placeholder type alias
 PortfolioState = dict  # Placeholder type alias
-Trade = dict  # Placeholder type alias

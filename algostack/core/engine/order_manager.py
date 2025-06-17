@@ -12,7 +12,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Optional
 
-from utils.logging import setup_logger
+from algostack.utils.logging import setup_logger
 
 
 class OrderType(Enum):

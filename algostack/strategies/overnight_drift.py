@@ -15,8 +15,8 @@ except ImportError:
 
     talib = create_talib_compatible_module()
 
-from strategies.base import BaseStrategy, RiskContext, Signal
-from utils.validators.strategy_validators import validate_overnight_drift_config
+from algostack.strategies.base import BaseStrategy, RiskContext, Signal
+from algostack.utils.validators.strategy_validators import validate_overnight_drift_config
 
 
 class OvernightDrift(BaseStrategy):

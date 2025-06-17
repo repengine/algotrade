@@ -1,7 +1,13 @@
-# Test Design Overhaul - Quick Reference Index
+# Test Design Quick Reference Index
 
 ## Overview
-This index provides quick access to the comprehensive test design overhaul plan. The full document is available at: `docs/planning/test-design-overhaul-plan.md`
+This index provides quick access to test design resources and project documentation.
+
+## Primary Documents
+- **Test Patterns & Examples**: [`test-scaffold.md`](test-scaffold.md) - Comprehensive test patterns, fixtures, and code examples
+- **Development Roadmap**: [`roadmap.md`](roadmap.md) - Project phases, progress tracking, and remaining work  
+- **Change History**: [`CHANGELOG.md`](CHANGELOG.md) - Detailed session reports and progress updates
+- **Legacy Full Plan**: [`test-design-overhaul-plan.md`](test-design-overhaul-plan.md) - Original comprehensive plan (reference only)
 
 ## Current Issues Summary
 - **Multiple test files** for same modules (test_portfolio.py, test_portfolio_comprehensive.py, etc.)

@@ -272,6 +272,9 @@ class BaseExecutor(ABC):
             and order.stop_price is None
         ):
             raise ValueError("Stop order requires stop price")
+        
+        if order.order_type == OrderType.STOP_LIMIT and order.limit_price is None:
+            raise ValueError("Stop limit order requires limit price")
 
         return True
 
@@ -299,9 +302,9 @@ class BaseExecutor(ABC):
     def update_price(self, symbol: str, price: float) -> None:
         """
         Update current market price for a symbol.
-        
+
         This is a default implementation that can be overridden by subclasses.
-        
+
         Args:
             symbol: Symbol to update
             price: Current market price

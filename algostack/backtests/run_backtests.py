@@ -11,8 +11,8 @@ import backtrader as bt
 import pandas as pd
 from backtrader.analyzers import DrawDown, Returns, SharpeRatio, TradeAnalyzer
 
-from core.data_handler import DataHandler
-from strategies.base import BaseStrategy, RiskContext, Signal
+from algostack.core.data_handler import DataHandler
+from algostack.strategies.base import BaseStrategy, RiskContext, Signal
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +40,10 @@ class AlgoStackStrategy(bt.Strategy):
         """Called on each bar."""
         # Prepare data for AlgoStack strategy
         lookback = self.algostack_strategy.config.get("lookback_period", 252)
+
+        # Check if we have enough data
+        if len(self.data) < lookback + 1:
+            return  # Not enough data yet
 
         # Get historical data
         data_dict = {
@@ -112,7 +116,7 @@ class AlgoStackStrategy(bt.Strategy):
                     "entry_price": trade.price,
                     "exit_price": self.data.close[0],
                     "pnl": trade.pnl,
-                    "pnl_pct": trade.pnlcomm / (trade.price * abs(trade.size)) * 100,
+                    "pnl_pct": trade.pnlcomm / (trade.price * abs(trade.size)) * 100 if trade.price * abs(trade.size) != 0 else 0.0,
                     "commission": trade.commission,
                 }
             )
@@ -121,7 +125,7 @@ class AlgoStackStrategy(bt.Strategy):
             self.algostack_strategy.update_performance(
                 {
                     "pnl": trade.pnl,
-                    "pnl_pct": trade.pnlcomm / (trade.price * abs(trade.size)) * 100,
+                    "pnl_pct": trade.pnlcomm / (trade.price * abs(trade.size)) * 100 if trade.price * abs(trade.size) != 0 else 0.0,
                 }
             )
 
@@ -214,6 +218,28 @@ class BacktestEngine:
 
         # Run backtest
         results = cerebro.run()
+        
+        # Handle case where no data was added
+        if not results:
+            logger.warning("No data available for backtest. Returning empty results.")
+            return {
+                'metrics': {
+                    'initial_capital': self.initial_capital,
+                    'final_value': self.initial_capital,
+                    'total_return': 0.0,
+                    'sharpe_ratio': 0.0,
+                    'max_drawdown': 0.0,
+                    'total_trades': 0,
+                    'winning_trades': 0,
+                    'losing_trades': 0,
+                    'win_rate': 0.0,
+                    'profit_factor': 0.0,
+                    'annual_return': 0.0
+                },
+                'signals': [],
+                'trades': []
+            }
+        
         strategy_results = results[0]
 
         # Extract metrics
@@ -227,13 +253,15 @@ class BacktestEngine:
                 metrics.update(strategy_metrics)
 
         # Store results
-        self.results[strategy.name] = {
+        full_results = {
             "metrics": metrics,
             "signals": strategy_results.signals_history,
             "trades": strategy_results.trades_history,
         }
+        self.results[strategy.name] = full_results
 
-        return metrics
+        # Return the full results structure for compatibility
+        return full_results
 
     def _extract_metrics(self, cerebro, strategy_results) -> dict[str, float]:
         """Extract performance metrics from backtest results."""
@@ -262,26 +290,33 @@ class BacktestEngine:
         # Calculate additional metrics
         if metrics["total_trades"] > 0:
             metrics["win_rate"] = metrics["winning_trades"] / metrics["total_trades"]
-            metrics["profit_factor"] = abs(
-                trades.get("won", {}).get("pnl", {}).get("total", 0)
-                / trades.get("lost", {}).get("pnl", {}).get("total", 1)
-            )
+            lost_pnl = trades.get("lost", {}).get("pnl", {}).get("total", 0)
+            won_pnl = trades.get("won", {}).get("pnl", {}).get("total", 0)
+            metrics["profit_factor"] = abs(won_pnl / lost_pnl) if lost_pnl != 0 else (float('inf') if won_pnl > 0 else 0)
         else:
             metrics["win_rate"] = 0
             metrics["profit_factor"] = 0
 
         # Annualized metrics
-        years = (
-            datetime.strptime(returns.get("end"), "%Y-%m-%d %H:%M:%S")
-            - datetime.strptime(returns.get("start"), "%Y-%m-%d %H:%M:%S")
-        ).days / 365.25
-
-        if years > 0:
-            metrics["annual_return"] = (
-                pow(final_value / self.initial_capital, 1 / years) - 1
-            ) * 100
+        if returns.get("start") and returns.get("end"):
+            try:
+                years = (
+                    datetime.strptime(returns.get("end"), "%Y-%m-%d %H:%M:%S")
+                    - datetime.strptime(returns.get("start"), "%Y-%m-%d %H:%M:%S")
+                ).days / 365.25
+                
+                if years > 0:
+                    metrics["annual_return"] = (
+                        pow(final_value / self.initial_capital, 1 / years) - 1
+                    ) * 100
+                else:
+                    metrics["annual_return"] = 0
+            except (ValueError, TypeError):
+                # If date parsing fails, calculate simple return
+                metrics["annual_return"] = total_return
         else:
-            metrics["annual_return"] = 0
+            # No date information, use simple return
+            metrics["annual_return"] = total_return
 
         return metrics
 
@@ -299,18 +334,18 @@ class BacktestEngine:
         """Print summary of all backtest results."""
         for strategy_name, result in self.results.items():
             metrics = result["metrics"]
-            print(f"\n{'='*60}")
-            print(f"Strategy: {strategy_name}")
-            print(f"{'='*60}")
-            print(f"Initial Capital: ${metrics['initial_capital']:,.2f}")
-            print(f"Final Value: ${metrics['final_value']:,.2f}")
-            print(f"Total Return: {metrics['total_return']:.2f}%")
-            print(f"Annual Return: {metrics['annual_return']:.2f}%")
-            print(f"Sharpe Ratio: {metrics['sharpe_ratio']:.2f}")
-            print(f"Max Drawdown: {metrics['max_drawdown']:.2f}%")
-            print(f"Total Trades: {metrics['total_trades']}")
-            print(f"Win Rate: {metrics['win_rate']:.2%}")
-            print(f"Profit Factor: {metrics['profit_factor']:.2f}")
+            logger.info(f"\n{'='*60}")
+            logger.info(f"Strategy: {strategy_name}")
+            logger.info(f"{'='*60}")
+            logger.info(f"Initial Capital: ${metrics['initial_capital']:,.2f}")
+            logger.info(f"Final Value: ${metrics['final_value']:,.2f}")
+            logger.info(f"Total Return: {metrics['total_return']:.2f}%")
+            logger.info(f"Annual Return: {metrics['annual_return']:.2f}%")
+            logger.info(f"Sharpe Ratio: {metrics['sharpe_ratio']:.2f}")
+            logger.info(f"Max Drawdown: {metrics['max_drawdown']:.2f}%")
+            logger.info(f"Total Trades: {metrics['total_trades']}")
+            logger.info(f"Win Rate: {metrics['win_rate']:.2%}")
+            logger.info(f"Profit Factor: {metrics['profit_factor']:.2f}")
 
 
 def run_walk_forward_optimization(

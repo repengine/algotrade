@@ -5,8 +5,8 @@ from datetime import datetime
 import pandas as pd
 import pytest
 
-from strategies.base import RiskContext, Signal
-from strategies.mean_reversion_equity import MeanReversionEquity
+from algostack.strategies.base import RiskContext, Signal
+from algostack.strategies.mean_reversion_equity import MeanReversionEquity
 
 
 class TestMeanReversionEquity:
@@ -18,8 +18,10 @@ class TestMeanReversionEquity:
         return {
             "symbols": ["SPY"],
             "rsi_period": 2,
-            "rsi_oversold": 10,
-            "rsi_overbought": 90,
+            "rsi_oversold": 10.0,
+            "rsi_overbought": 90.0,
+            "zscore_threshold": 2.0,
+            "exit_zscore": 0.5,
             "atr_period": 14,
             "atr_band_mult": 2.5,
             "stop_loss_atr": 3.0,
@@ -87,9 +89,10 @@ class TestMeanReversionEquity:
         assert (rsi_values >= 0).all()
         assert (rsi_values <= 100).all()
 
-        # Check band relationships
-        assert (df["upper_band"] > df["sma_20"]).all()
-        assert (df["lower_band"] < df["sma_20"]).all()
+        # Check band relationships (after dropping NaN values)
+        valid_idx = df["upper_band"].notna() & df["sma_20"].notna() & df["lower_band"].notna()
+        assert (df.loc[valid_idx, "upper_band"] > df.loc[valid_idx, "sma_20"]).all()
+        assert (df.loc[valid_idx, "lower_band"] < df.loc[valid_idx, "sma_20"]).all()
 
     @pytest.mark.unit
     def test_entry_signal_generation(self, strategy, oversold_data):

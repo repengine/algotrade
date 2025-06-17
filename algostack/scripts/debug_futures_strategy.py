@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """Debug the futures momentum strategy to see why no trades are generated."""
 
+import logging
 from datetime import datetime, timedelta
 
 import yfinance as yf
 
-from strategies.futures_momentum import FuturesMomentum
+from algostack.strategies.futures_momentum import FuturesMomentum
+
+logger = logging.getLogger(__name__)
 
 # Fetch data
-print("Fetching SPY data...")
+logger.info("Fetching SPY data...")
 end_date = datetime.now()
 start_date = end_date - timedelta(days=30)
 
@@ -16,8 +19,8 @@ spy = yf.Ticker("SPY")
 data = spy.history(start=start_date, end=end_date, interval="5m")
 data.columns = data.columns.str.lower()
 
-print(f"Loaded {len(data)} bars")
-print(f"Date range: {data.index[0]} to {data.index[-1]}")
+logger.info(f"Loaded {len(data)} bars")
+logger.info(f"Date range: {data.index[0]} to {data.index[-1]}")
 
 # Create strategy
 config = {
@@ -37,7 +40,7 @@ strategy = FuturesMomentum(config)
 strategy.init()
 
 # Test for signals
-print("\nLooking for trading opportunities...")
+logger.info("\nLooking for trading opportunities...")
 signals_found = 0
 
 for i in range(50, min(200, len(data))):  # Check first 200 bars after warmup
@@ -66,25 +69,25 @@ for i in range(50, min(200, len(data))):  # Check first 200 bars after warmup
     signal = strategy.next(window)
 
     if i % 100 == 0 or signal:
-        print(f"\nBar {i} ({window.index[-1]}):")
-        print(f"  Price: ${current_price:.2f}")
-        print(f"  20-bar High: ${high_20:.2f}")
-        print(f"  Breakout Level: ${breakout_level:.2f}")
-        print(f"  Above Breakout: {current_price > breakout_level}")
-        print(f"  RSI: {current_rsi:.1f} (threshold: {config['rsi_threshold']})")
-        print(
+        logger.info(f"\nBar {i} ({window.index[-1]}):")
+        logger.info(f"  Price: ${current_price:.2f}")
+        logger.info(f"  20-bar High: ${high_20:.2f}")
+        logger.info(f"  Breakout Level: ${breakout_level:.2f}")
+        logger.info(f"  Above Breakout: {current_price > breakout_level}")
+        logger.info(f"  RSI: {current_rsi:.1f} (threshold: {config['rsi_threshold']})")
+        logger.info(
             f"  Volume Ratio: {volume_ratio:.2f} (threshold: {config['volume_multiplier']})"
         )
 
     if signal:
         signals_found += 1
-        print(f"  *** SIGNAL: {signal.direction} - {signal.reason}")
+        logger.info(f"  *** SIGNAL: {signal.direction} - {signal.reason}")
 
-print(f"\nTotal signals found: {signals_found}")
+logger.info(f"\nTotal signals found: {signals_found}")
 
 # Check why no signals
 if signals_found == 0:
-    print("\nDiagnosing why no signals...")
+    logger.info("\nDiagnosing why no signals...")
 
     # Check price breakouts
     breakouts = 0
@@ -94,12 +97,12 @@ if signals_found == 0:
         if data["close"].iloc[i] > breakout_level:
             breakouts += 1
 
-    print(
+    logger.info(
         f"Price breakouts found: {breakouts} out of {len(data)-20} bars ({breakouts/(len(data)-20)*100:.1f}%)"
     )
 
     # Lower thresholds to see what would work
-    print("\nTesting with lower thresholds...")
+    logger.info("\nTesting with lower thresholds...")
     for threshold in [0.3, 0.2, 0.1, 0.05]:
         breakouts = 0
         for i in range(20, len(data)):
@@ -107,6 +110,6 @@ if signals_found == 0:
             breakout_level = high_20 * (1 + threshold / 100)
             if data["close"].iloc[i] > breakout_level:
                 breakouts += 1
-        print(
+        logger.info(
             f"  {threshold}% threshold: {breakouts} breakouts ({breakouts/(len(data)-20)*100:.1f}%)"
         )

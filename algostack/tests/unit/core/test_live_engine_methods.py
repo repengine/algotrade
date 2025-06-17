@@ -2,22 +2,21 @@
 """Test all the newly implemented methods work together."""
 
 import asyncio
+import os
+import sys
 from datetime import datetime
 
 import pandas as pd
 
-import sys
-import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.live_engine import LiveTradingEngine
-from core.portfolio import PortfolioEngine
-from strategies.base import BaseStrategy, Signal
+from algostack.core.live_engine import LiveTradingEngine
+from algostack.strategies.base import BaseStrategy, Signal
 
 
 class MockStrategy(BaseStrategy):
     """Mock strategy for testing."""
-    
+
     def __init__(self, **kwargs):
         """Initialize with config."""
         config = kwargs if kwargs else {}
@@ -77,7 +76,7 @@ async def test_live_engine():
 
     # Test position update
     portfolio.update_position("AAPL", 100, 150.0, 155.0)
-    print(f"✓ Updated position for AAPL")
+    print("✓ Updated position for AAPL")
 
     # Test portfolio metrics
     metrics = portfolio.calculate_metrics()

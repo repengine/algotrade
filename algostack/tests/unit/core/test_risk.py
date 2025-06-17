@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from core.risk import EnhancedRiskManager, RiskMetrics
-from strategies.base import RiskContext, Signal
+from algostack.core.risk import EnhancedRiskManager, RiskMetrics
+from algostack.strategies.base import RiskContext, Signal
 
 
 @pytest.fixture
@@ -146,17 +146,29 @@ class TestEnhancedRiskManager:
 
     def test_calculate_stress_scenarios(self, risk_manager, sample_positions):
         """Test stress scenario calculations."""
-        scenarios = risk_manager.calculate_stress_scenarios(
-            positions=sample_positions, correlations=pd.DataFrame(np.eye(3))
-        )
+        # Create mock portfolio
+        from unittest.mock import Mock
+        
+        # Create position mocks
+        positions = {}
+        for symbol, data in sample_positions.items():
+            pos = Mock()
+            pos.direction = "LONG"
+            pos.market_value = data["value"]
+            positions[symbol] = pos
+        
+        portfolio = Mock()
+        portfolio.positions = positions
+        portfolio.current_equity = 100000
+        
+        scenarios = risk_manager.calculate_stress_scenarios(portfolio)
 
         assert "market_crash" in scenarios
-        assert "vol_spike" in scenarios
-        assert "correlation_breakdown" in scenarios
+        assert "flash_crash" in scenarios
+        assert "liquidity_crisis" in scenarios
 
         # Market crash should show negative impact
-        assert scenarios["market_crash"]["portfolio_impact"] < 0
-        assert scenarios["market_crash"]["worst_position"] in sample_positions
+        assert scenarios["market_crash"] < 0
 
     def test_get_risk_adjusted_sizes(self, risk_manager):
         """Test risk-adjusted position sizing."""
@@ -181,21 +193,26 @@ class TestEnhancedRiskManager:
             ),
         ]
 
-        risk_context = RiskContext(
-            account_equity=100000,
-            open_positions=2,
-            daily_pnl=500,
-            max_drawdown_pct=0.05,
-            volatility_target=0.10,
-            max_position_size=0.20,
-        )
+        # Create mock portfolio
+        from unittest.mock import Mock
+        portfolio = Mock()
+        portfolio.current_equity = 100000
+        
+        # Create market data
+        market_data = {
+            "SPY": pd.DataFrame({"returns": np.random.normal(0.001, 0.01, 100)}),
+            "QQQ": pd.DataFrame({"returns": np.random.normal(0.001, 0.015, 100)})
+        }
 
-        adjusted_sizes = risk_manager.get_risk_adjusted_sizes(signals, risk_context)
+        adjusted_sizes = risk_manager.get_risk_adjusted_sizes(signals, portfolio, market_data)
 
         assert len(adjusted_sizes) == 2
-        for _signal, size in adjusted_sizes:
+        assert "SPY" in adjusted_sizes
+        assert "QQQ" in adjusted_sizes
+        
+        for symbol, size in adjusted_sizes.items():
             assert size >= 0
-            assert size <= risk_context.account_equity * risk_context.max_position_size
+            assert size <= 0.20  # Max position size
 
     def test_update_regime(self, risk_manager, sample_returns):
         """Test market regime detection."""
@@ -307,8 +324,8 @@ class TestEnhancedRiskManager:
 
         # Higher volatility assets should have lower weights
         vols = sample_returns.std()
-        sorted_idx = np.argsort(vols)
-        assert optimal[sorted_idx[0]] > optimal[sorted_idx[-1]]
+        sorted_idx = np.argsort(vols.values)
+        assert optimal.iloc[sorted_idx[0]] > optimal.iloc[sorted_idx[-1]]
 
 
 class TestRiskMetrics:
@@ -384,15 +401,23 @@ class TestIntegration:
             max_position_size=0.15,
         )
 
+        # Create mock portfolio and market data
+        from unittest.mock import Mock
+        portfolio = Mock()
+        portfolio.current_equity = risk_context.account_equity
+        
+        # Create empty market data
+        market_data = {}
+        
         # Get risk-adjusted sizes
-        adjusted_sizes = risk_manager.get_risk_adjusted_sizes(signals, risk_context)
+        adjusted_sizes = risk_manager.get_risk_adjusted_sizes(signals, portfolio, market_data)
 
         # Verify constraints
-        total_exposure = sum(size for _, size in adjusted_sizes)
-        assert total_exposure <= risk_context.account_equity
-
-        for signal, size in adjusted_sizes:
-            assert size <= risk_context.account_equity * risk_context.max_position_size
+        assert len(adjusted_sizes) == len([s for s in signals if s.direction != "FLAT"])
+        
+        for symbol, size in adjusted_sizes.items():
+            assert size >= 0
+            assert size <= risk_manager.risk_limits["max_position_size"]
 
     def test_full_risk_cycle(self, risk_manager, sample_returns, sample_positions):
         """Test complete risk management cycle."""

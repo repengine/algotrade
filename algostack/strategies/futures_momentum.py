@@ -12,7 +12,7 @@ except ImportError:
 
     talib = create_talib_compatible_module()
 
-from strategies.base import BaseStrategy, RiskContext, Signal
+from algostack.strategies.base import BaseStrategy, RiskContext, Signal
 
 
 class FuturesMomentum(BaseStrategy):

@@ -4,7 +4,10 @@ WINNING FUTURES STRATEGY - Your path to 100%+ annual returns
 """
 
 import json
+import logging
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 # Based on extensive backtesting and optimization
 WINNING_STRATEGY = {
@@ -173,10 +176,10 @@ def main():
     with open(filename, "w") as f:
         json.dump(WINNING_STRATEGY, f, indent=2)
 
-    print(f"\n✅ Your complete strategy saved to: {filename}")
-    print("\n💎 This is your blueprint to financial freedom through futures trading!")
-    print("🎯 No PDT rules, superior leverage, massive opportunity!")
-    print("\n" + "=" * 80)
+    logger.info(f"\n✅ Your complete strategy saved to: {filename}")
+    logger.info("\n💎 This is your blueprint to financial freedom through futures trading!")
+    logger.info("🎯 No PDT rules, superior leverage, massive opportunity!")
+    logger.info("\n" + "=" * 80)
 
 
 if __name__ == "__main__":

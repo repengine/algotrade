@@ -3,6 +3,7 @@
 import numpy as np
 import pandas as pd
 import pytest
+
 from scripts.pandas_indicators import PandasIndicators, create_talib_compatible_module
 
 

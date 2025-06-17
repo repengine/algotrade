@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from strategies.base import RiskContext, Signal
-from strategies.mean_reversion_equity import MeanReversionEquity
+from algostack.strategies.base import RiskContext, Signal
+from algostack.strategies.mean_reversion_equity import MeanReversionEquity
 
 
 class TestMeanReversionEquity:

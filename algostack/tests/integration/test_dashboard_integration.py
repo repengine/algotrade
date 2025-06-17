@@ -7,14 +7,15 @@ import sys
 from pathlib import Path
 
 import yaml
+import pytest
 
 # Add the algostack directory to the Python path
 sys.path.insert(0, str(Path(__file__).parent))
 
 
-from backtests.run_backtests import BacktestEngine
-from core.data_handler import DataHandler
-from strategies.base import BaseStrategy
+from algostack.backtests.run_backtests import BacktestEngine
+from algostack.core.data_handler import DataHandler
+from algostack.strategies.base import BaseStrategy
 
 
 def test_strategy_discovery():
@@ -72,6 +73,28 @@ def test_config_loading():
         print(f"✗ Failed to load configuration: {e}")
         return None
 
+
+@pytest.fixture
+def strategies():
+    """Return available strategies."""
+    from algostack.strategies.mean_reversion_equity import MeanReversionEquity
+    from algostack.strategies.trend_following_multi import TrendFollowingMulti
+    return {
+        "MeanReversionEquity": MeanReversionEquity,
+        "TrendFollowingMulti": TrendFollowingMulti
+    }
+
+@pytest.fixture
+def config():
+    """Return test configuration."""
+    return {
+        "symbols": ["AAPL", "MSFT"],
+        "lookback_period": 20,
+        "zscore_threshold": 2.0,
+        "exit_zscore": 0.5,
+        "channel_period": 20,
+        "adx_threshold": 25.0
+    }
 
 def test_strategy_instantiation(strategies, config):
     """Test strategy instantiation"""

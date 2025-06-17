@@ -10,25 +10,25 @@ import logging
 from datetime import datetime
 from typing import Any, Optional
 
-from adapters.ibkr_adapter import (
+from algostack.adapters.ibkr_adapter import (
     Contract as IBKRContract,
 )
-from adapters.ibkr_adapter import (
+from algostack.adapters.ibkr_adapter import (
     IBKRAdapter,
 )
-from adapters.ibkr_adapter import (
+from algostack.adapters.ibkr_adapter import (
     Order as IBKROrder,
 )
-from adapters.ibkr_adapter import (
+from algostack.adapters.ibkr_adapter import (
     OrderSide as IBKROrderSide,
 )
-from adapters.ibkr_adapter import (
+from algostack.adapters.ibkr_adapter import (
     OrderType as IBKROrderType,
 )
-from adapters.ibkr_adapter import (
+from algostack.adapters.ibkr_adapter import (
     TimeInForce as IBKRTimeInForce,
 )
-from core.executor import (
+from algostack.core.executor import (
     BaseExecutor,
     Fill,
     Order,

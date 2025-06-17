@@ -17,7 +17,7 @@ import pandas as pd
 from aiohttp import ClientSession, ClientTimeout, TCPConnector
 from aiohttp.client_exceptions import ClientError
 
-from utils.logging import setup_logger
+from algostack.utils.logging import setup_logger
 
 logger = setup_logger(__name__)
 
@@ -153,9 +153,16 @@ class AccountInfo:
 
 
 class IBKRWebSocketClient:
-    """WebSocket client for IBKR streaming data"""
+    """WebSocket client for IBKR streaming data with robust reconnection logic"""
 
-    def __init__(self, base_url: str, ssl_verify: bool = False):
+    def __init__(
+        self, 
+        base_url: str, 
+        ssl_verify: bool = False,
+        max_reconnect_attempts: int = 10,
+        initial_reconnect_delay: float = 1.0,
+        max_reconnect_delay: float = 60.0
+    ):
         self.base_url = base_url.replace("https://", "wss://")
         self.ws_url = f"{self.base_url}/v1/api/ws"
         self.ssl_verify = ssl_verify
@@ -166,10 +173,36 @@ class IBKRWebSocketClient:
         self._callbacks: dict[str, list[Callable]] = {}
         self._running = False
         self._heartbeat_task = None
+        
+        # Reconnection parameters
+        self.max_reconnect_attempts = max_reconnect_attempts
+        self.initial_reconnect_delay = initial_reconnect_delay
+        self.max_reconnect_delay = max_reconnect_delay
+        self._reconnect_attempts = 0
+        self._reconnect_delay = initial_reconnect_delay
+        
+        # Connection state tracking
+        self._connection_state = ConnectionState.DISCONNECTED
+        self._reconnect_task = None
+        self._receive_task = None
+        
+        # Store subscriptions for re-subscription after reconnect
+        self._market_data_subscriptions: dict[int, list[str]] = {}
+        self._order_subscription = False
+        self._pnl_subscription = False
+    
+    @property
+    def connection_state(self) -> ConnectionState:
+        """Get current connection state"""
+        return self._connection_state
 
     async def connect(self) -> bool:
-        """Connect to WebSocket"""
+        """Connect to WebSocket with automatic reconnection"""
         try:
+            # Update state
+            self._connection_state = ConnectionState.CONNECTING
+            self._notify_connection_status("connecting")
+            
             if self.session:
                 await self.session.close()
 
@@ -186,38 +219,71 @@ class IBKRWebSocketClient:
             self.ws = await self.session.ws_connect(self.ws_url, ssl=ssl_context)
 
             self._running = True
+            self._connection_state = ConnectionState.CONNECTED
+            self._reconnect_attempts = 0
+            self._reconnect_delay = self.initial_reconnect_delay
 
             # Start heartbeat
             self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
 
             # Start message receiver
-            asyncio.create_task(self._receive_messages())
+            self._receive_task = asyncio.create_task(self._receive_messages())
+            
+            # Notify connection established
+            self._notify_connection_status("connected")
 
             self.logger.info("WebSocket connected")
+            
+            # Re-subscribe to previous subscriptions if this is a reconnection
+            await self._restore_subscriptions()
+            
             return True
 
         except Exception as e:
             self.logger.error(f"WebSocket connection failed: {e}")
+            self._connection_state = ConnectionState.ERROR
+            self._notify_connection_status("error", str(e))
+            
+            # Start reconnection if not already disconnecting
+            if self._running:
+                asyncio.create_task(self._handle_reconnection())
+            
             return False
 
     async def disconnect(self):
         """Disconnect WebSocket"""
         self._running = False
+        self._connection_state = ConnectionState.DISCONNECTED
 
+        # Cancel reconnection if in progress
+        if self._reconnect_task:
+            self._reconnect_task.cancel()
+            
         if self._heartbeat_task:
             self._heartbeat_task.cancel()
+            
+        if self._receive_task:
+            self._receive_task.cancel()
 
         if self.ws:
             await self.ws.close()
 
         if self.session:
             await self.session.close()
-
+            
+        self._notify_connection_status("disconnected")
         self.logger.info("WebSocket disconnected")
 
     async def subscribe_market_data(self, conid: int, fields: list[str]) -> bool:
         """Subscribe to market data"""
         try:
+            # Store subscription for reconnection
+            self._market_data_subscriptions[conid] = fields
+            
+            if not self.ws or self.ws.closed:
+                self.logger.warning("WebSocket not connected, subscription will be restored on reconnection")
+                return False
+                
             field_list = ",".join(fields)
             message = f'smd+{conid}+{{"fields":[{field_list}]}}'
             await self.ws.send_str(message)
@@ -231,11 +297,21 @@ class IBKRWebSocketClient:
 
         except Exception as e:
             self.logger.error(f"Failed to subscribe to market data: {e}")
+            # Trigger reconnection if send failed
+            if self._running:
+                asyncio.create_task(self._handle_reconnection())
             return False
 
     async def unsubscribe_market_data(self, conid: int) -> bool:
         """Unsubscribe from market data"""
         try:
+            # Remove from stored subscriptions
+            if conid in self._market_data_subscriptions:
+                del self._market_data_subscriptions[conid]
+                
+            if not self.ws or self.ws.closed:
+                return True
+                
             message = f"umd+{conid}+{{}}"
             await self.ws.send_str(message)
 
@@ -252,21 +328,39 @@ class IBKRWebSocketClient:
     async def subscribe_orders(self) -> bool:
         """Subscribe to order updates"""
         try:
+            # Store subscription state
+            self._order_subscription = True
+            
+            if not self.ws or self.ws.closed:
+                self.logger.warning("WebSocket not connected, subscription will be restored on reconnection")
+                return False
+                
             await self.ws.send_str("sor+{}")
             self.logger.info("Subscribed to order updates")
             return True
         except Exception as e:
             self.logger.error(f"Failed to subscribe to orders: {e}")
+            if self._running:
+                asyncio.create_task(self._handle_reconnection())
             return False
 
     async def subscribe_pnl(self) -> bool:
         """Subscribe to P&L updates"""
         try:
+            # Store subscription state
+            self._pnl_subscription = True
+            
+            if not self.ws or self.ws.closed:
+                self.logger.warning("WebSocket not connected, subscription will be restored on reconnection")
+                return False
+                
             await self.ws.send_str("spl+{}")
             self.logger.info("Subscribed to P&L updates")
             return True
         except Exception as e:
             self.logger.error(f"Failed to subscribe to P&L: {e}")
+            if self._running:
+                asyncio.create_task(self._handle_reconnection())
             return False
 
     def register_callback(self, topic: str, callback: Callable):
@@ -279,6 +373,12 @@ class IBKRWebSocketClient:
         """Receive and process WebSocket messages"""
         while self._running:
             try:
+                if not self.ws or self.ws.closed:
+                    self.logger.warning("WebSocket closed unexpectedly")
+                    if self._running:
+                        await self._handle_reconnection()
+                    break
+                    
                 msg = await self.ws.receive()
 
                 if msg.type == aiohttp.WSMsgType.TEXT:
@@ -295,24 +395,138 @@ class IBKRWebSocketClient:
 
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     self.logger.error(f"WebSocket error: {msg.data}")
+                    if self._running:
+                        await self._handle_reconnection()
+                    break
 
                 elif msg.type == aiohttp.WSMsgType.CLOSED:
                     self.logger.warning("WebSocket closed")
+                    if self._running:
+                        await self._handle_reconnection()
                     break
 
             except Exception as e:
                 self.logger.error(f"Message receive error: {e}")
-                await asyncio.sleep(1)
+                if self._running:
+                    await self._handle_reconnection()
+                break
 
     async def _heartbeat_loop(self):
         """Send periodic heartbeats"""
         while self._running:
             try:
+                if not self.ws or self.ws.closed:
+                    self.logger.warning("WebSocket closed during heartbeat")
+                    if self._running:
+                        await self._handle_reconnection()
+                    break
+                    
                 await self.ws.send_str("ech+hb")
                 await asyncio.sleep(30)  # Send heartbeat every 30 seconds
             except Exception as e:
                 self.logger.error(f"Heartbeat error: {e}")
+                if self._running:
+                    await self._handle_reconnection()
                 break
+    
+    async def _handle_reconnection(self):
+        """Handle WebSocket reconnection with exponential backoff"""
+        # Prevent multiple reconnection tasks
+        if self._reconnect_task and not self._reconnect_task.done():
+            return
+            
+        self._reconnect_task = asyncio.create_task(self._reconnect_with_backoff())
+        
+    async def _reconnect_with_backoff(self):
+        """Reconnect with exponential backoff"""
+        self._connection_state = ConnectionState.DISCONNECTED
+        self._notify_connection_status("disconnected")
+        
+        # Clean up existing connection
+        if self.ws:
+            try:
+                await self.ws.close()
+            except Exception:
+                pass
+                
+        while self._running and self._reconnect_attempts < self.max_reconnect_attempts:
+            self._reconnect_attempts += 1
+            self._connection_state = ConnectionState.CONNECTING
+            self._notify_connection_status("reconnecting", 
+                                         f"Attempt {self._reconnect_attempts}/{self.max_reconnect_attempts}")
+            
+            self.logger.info(f"Reconnection attempt {self._reconnect_attempts} after {self._reconnect_delay}s delay")
+            
+            # Wait before reconnecting
+            await asyncio.sleep(self._reconnect_delay)
+            
+            # Try to reconnect
+            try:
+                success = await self.connect()
+                if success:
+                    self.logger.info("Reconnection successful")
+                    return
+            except Exception as e:
+                self.logger.error(f"Reconnection failed: {e}")
+            
+            # Exponential backoff
+            self._reconnect_delay = min(self._reconnect_delay * 2, self.max_reconnect_delay)
+        
+        if self._reconnect_attempts >= self.max_reconnect_attempts:
+            self.logger.error(f"Max reconnection attempts ({self.max_reconnect_attempts}) reached")
+            self._connection_state = ConnectionState.ERROR
+            self._notify_connection_status("max_reconnect_attempts_reached")
+            self._running = False
+    
+    async def _restore_subscriptions(self):
+        """Restore all subscriptions after reconnection"""
+        if not self._reconnect_attempts:  # Skip on initial connection
+            return
+            
+        self.logger.info("Restoring subscriptions after reconnection")
+        
+        # Restore market data subscriptions
+        for conid, fields in self._market_data_subscriptions.items():
+            try:
+                field_list = ",".join(fields)
+                message = f'smd+{conid}+{{"fields":[{field_list}]}}'
+                await self.ws.send_str(message)
+                self.logger.info(f"Restored market data subscription for {conid}")
+            except Exception as e:
+                self.logger.error(f"Failed to restore market data subscription for {conid}: {e}")
+        
+        # Restore order subscription
+        if self._order_subscription:
+            try:
+                await self.ws.send_str("sor+{}")
+                self.logger.info("Restored order subscription")
+            except Exception as e:
+                self.logger.error(f"Failed to restore order subscription: {e}")
+        
+        # Restore P&L subscription
+        if self._pnl_subscription:
+            try:
+                await self.ws.send_str("spl+{}")
+                self.logger.info("Restored P&L subscription")
+            except Exception as e:
+                self.logger.error(f"Failed to restore P&L subscription: {e}")
+    
+    def _notify_connection_status(self, status: str, details: str = ""):
+        """Notify callbacks about connection status changes"""
+        if "connection_status" in self._callbacks:
+            status_data = {
+                "topic": "connection_status",
+                "status": status,
+                "state": self._connection_state.value,
+                "details": details,
+                "reconnect_attempts": self._reconnect_attempts,
+                "timestamp": pd.Timestamp.now().isoformat()
+            }
+            for callback in self._callbacks["connection_status"]:
+                try:
+                    asyncio.create_task(callback(status_data))
+                except Exception as e:
+                    self.logger.error(f"Connection status callback error: {e}")
 
 
 class IBKRAdapter:
@@ -331,6 +545,9 @@ class IBKRAdapter:
         gateway_url: str = "https://localhost:5000",
         ssl_verify: bool = False,
         timeout: int = 30,
+        ws_max_reconnect_attempts: int = 10,
+        ws_initial_reconnect_delay: float = 1.0,
+        ws_max_reconnect_delay: float = 60.0,
     ):
         """
         Initialize IBKR adapter
@@ -339,6 +556,9 @@ class IBKRAdapter:
             gateway_url: URL of the Client Portal Gateway
             ssl_verify: Whether to verify SSL certificates
             timeout: Request timeout in seconds
+            ws_max_reconnect_attempts: Maximum WebSocket reconnection attempts
+            ws_initial_reconnect_delay: Initial delay between reconnection attempts
+            ws_max_reconnect_delay: Maximum delay between reconnection attempts
         """
         self.base_url = gateway_url
         self.ssl_verify = ssl_verify
@@ -351,6 +571,11 @@ class IBKRAdapter:
         self.authenticated = False
         self.accounts: list[str] = []
         self.selected_account: Optional[str] = None
+        
+        # WebSocket reconnection parameters
+        self.ws_max_reconnect_attempts = ws_max_reconnect_attempts
+        self.ws_initial_reconnect_delay = ws_initial_reconnect_delay
+        self.ws_max_reconnect_delay = ws_max_reconnect_delay
 
         # Callbacks
         self._market_data_callbacks: dict[int, list[Callable]] = {}
@@ -396,9 +621,18 @@ class IBKRAdapter:
                 # Get accounts
                 await self._load_accounts()
 
-                # Initialize WebSocket
-                self.ws_client = IBKRWebSocketClient(self.base_url, self.ssl_verify)
+                # Initialize WebSocket with reconnection support
+                self.ws_client = IBKRWebSocketClient(
+                    self.base_url, 
+                    self.ssl_verify,
+                    max_reconnect_attempts=self.ws_max_reconnect_attempts,
+                    initial_reconnect_delay=self.ws_initial_reconnect_delay,
+                    max_reconnect_delay=self.ws_max_reconnect_delay
+                )
                 await self.ws_client.connect()
+                
+                # Register connection status callback for monitoring
+                self.ws_client.register_callback("connection_status", self._on_ws_connection_status)
 
                 self.logger.info("Connected to IBKR gateway")
                 return True
@@ -445,7 +679,7 @@ class IBKRAdapter:
                     self.logger.error(f"Request failed: {response.status} - {text}")
                     return None
 
-        except ClientError as e:
+        except (ClientError, Exception) as e:
             self.logger.error(f"Request error: {e}")
             return None
 
@@ -863,3 +1097,26 @@ class IBKRAdapter:
     async def get_server_info(self) -> Optional[dict]:
         """Get server information"""
         return await self._request("GET", "/v1/api/one/user")
+    
+    async def _on_ws_connection_status(self, data: dict):
+        """Handle WebSocket connection status changes"""
+        status = data.get("status", "")
+        state = data.get("state", "")
+        details = data.get("details", "")
+        
+        self.logger.info(f"WebSocket connection status: {status} (state={state}, details={details})")
+        
+        # Update adapter state based on WebSocket state
+        if state == "connected":
+            self.state = ConnectionState.CONNECTED
+        elif state == "connecting" or state == "reconnecting":
+            self.state = ConnectionState.CONNECTING
+        elif state == "disconnected":
+            self.state = ConnectionState.DISCONNECTED
+        elif state == "error":
+            self.state = ConnectionState.ERROR
+            
+        # Notify any registered callbacks about connection state changes
+        if status == "max_reconnect_attempts_reached":
+            self.logger.error("WebSocket failed to reconnect after maximum attempts")
+            # Could trigger additional recovery logic here

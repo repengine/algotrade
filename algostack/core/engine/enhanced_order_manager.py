@@ -11,7 +11,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any, Callable, Optional
 
-from core.executor import (
+from algostack.core.executor import (
     BaseExecutor,
     ExecutionCallback,
     Fill,
@@ -22,6 +22,7 @@ from core.executor import (
     Position,
     TimeInForce,
 )
+from algostack.core.order_state_sync import OrderStateSynchronizer
 
 logger = logging.getLogger(__name__)
 
@@ -54,12 +55,13 @@ class EnhancedOrderManager(ExecutionCallback):
     - Comprehensive event handling
     """
 
-    def __init__(self, risk_manager=None):
+    def __init__(self, risk_manager=None, sync_config=None):
         """
         Initialize enhanced order manager.
 
         Args:
             risk_manager: Risk manager for order validation
+            sync_config: Configuration for order state synchronization
         """
         self.risk_manager = risk_manager
         self.executors: dict[str, BaseExecutor] = {}
@@ -86,6 +88,10 @@ class EnhancedOrderManager(ExecutionCallback):
 
         # Locks
         self._order_lock = asyncio.Lock()
+        
+        # Order state synchronization
+        self.sync_config = sync_config or {}
+        self.order_synchronizer: Optional[OrderStateSynchronizer] = None
 
     def add_executor(self, name: str, executor: BaseExecutor) -> None:
         """
@@ -113,12 +119,12 @@ class EnhancedOrderManager(ExecutionCallback):
     async def create_order(
         self,
         symbol: str,
-        side: OrderSide,
+        side: OrderSide | str,
         quantity: int,
-        order_type: OrderType = OrderType.MARKET,
+        order_type: OrderType | str = OrderType.MARKET,
         limit_price: Optional[float] = None,
         stop_price: Optional[float] = None,
-        time_in_force: TimeInForce = TimeInForce.DAY,
+        time_in_force: TimeInForce | str = TimeInForce.DAY,
         strategy_id: Optional[str] = None,
         **metadata,
     ) -> Order:
@@ -139,6 +145,14 @@ class EnhancedOrderManager(ExecutionCallback):
         Returns:
             Created order
         """
+        # Convert string parameters to enums if needed
+        if isinstance(side, str):
+            side = OrderSide(side.upper())
+        if isinstance(order_type, str):
+            order_type = OrderType(order_type.upper())
+        if isinstance(time_in_force, str):
+            time_in_force = TimeInForce(time_in_force.upper())
+            
         # Create order
         order = Order(
             order_id=f"ORD-{datetime.now().strftime('%Y%m%d%H%M%S%f')}",
@@ -173,8 +187,8 @@ class EnhancedOrderManager(ExecutionCallback):
         await self._record_event(order, OrderEventType.CREATED)
 
         logger.info(
-            f"Order created: {order.order_id} - {side.value} {quantity} {symbol} "
-            f"({order_type.value})"
+            f"Order created: {order.order_id} - {order.side.value} {quantity} {symbol} "
+            f"({order.order_type.value})"
         )
 
         return order
@@ -204,6 +218,20 @@ class EnhancedOrderManager(ExecutionCallback):
             raise RuntimeError(f"Executor {executor_name} not connected")
 
         try:
+            # Check for duplicate orders if synchronizer is active
+            if self.order_synchronizer:
+                is_duplicate = await self.order_synchronizer.check_duplicate_order(
+                    order.symbol,
+                    order.side.value,
+                    order.quantity
+                )
+                if is_duplicate:
+                    logger.warning(f"Duplicate order prevented: {order}")
+                    order.status = OrderStatus.REJECTED
+                    order.metadata["rejection_reason"] = "Duplicate order detected"
+                    await self._record_event(order, OrderEventType.REJECTED, {"reason": "duplicate"})
+                    return False
+            
             # Submit to executor
             broker_order_id = await executor.submit_order(order)
             order.metadata["broker_order_id"] = broker_order_id
@@ -282,6 +310,29 @@ class EnhancedOrderManager(ExecutionCallback):
 
         return active_orders
 
+    def get_all_orders(self) -> list[Order]:
+        """Get all orders regardless of status."""
+        return list(self._orders.values())
+
+    def get_recent_fills(self, seconds: int = 60) -> list[Order]:
+        """Get orders filled in the last N seconds."""
+        from datetime import datetime, timedelta
+        cutoff_time = datetime.now() - timedelta(seconds=seconds)
+        recent_fills = []
+        
+        for order in self._orders.values():
+            if order.status == OrderStatus.FILLED:
+                # Check if order has a fill timestamp
+                if hasattr(order, 'filled_timestamp') and order.filled_timestamp:
+                    if order.filled_timestamp >= cutoff_time:
+                        recent_fills.append(order)
+                elif hasattr(order, 'updated_at') and order.updated_at:
+                    # Fallback to updated_at if no fill timestamp
+                    if order.updated_at >= cutoff_time:
+                        recent_fills.append(order)
+        
+        return recent_fills
+
     def get_strategy_orders(self, strategy_id: str) -> list[Order]:
         """Get all orders for a strategy."""
         order_ids = self._strategy_orders.get(strategy_id, set())
@@ -337,17 +388,68 @@ class EnhancedOrderManager(ExecutionCallback):
 
     def on_order_status(self, order: Order) -> None:
         """Handle order status updates from executor."""
-        asyncio.create_task(self._handle_order_status(order))
-
+        asyncio.create_task(self._handle_order_update(order))
+    
+    def on_order_update(self, order: Order) -> None:
+        """Handle order status updates from executor (alias for compatibility)."""
+        self.on_order_status(order)
+    
     def on_fill(self, fill: Fill) -> None:
-        """Handle fill notifications from executor."""
+        """Handle order fill from executor."""
         asyncio.create_task(self._handle_fill(fill))
-
+    
     def on_error(self, error: Exception, order: Optional[Order] = None) -> None:
         """Handle execution errors."""
         asyncio.create_task(self._handle_error(error, order))
 
     # Private methods
+    
+    async def _handle_order_update(self, order: Order) -> None:
+        """Handle order status update from executor.
+        
+        CRITICAL: This ensures we track actual order state for risk management.
+        """
+        async with self._order_lock:
+            if order.order_id in self._orders:
+                # Update our copy of the order
+                self._orders[order.order_id] = order
+                
+                # Track statistics
+                if order.status == OrderStatus.FILLED:
+                    self._order_stats["filled_orders"] += 1
+                    self._order_stats["total_commission"] += order.commission or 0
+                elif order.status == OrderStatus.REJECTED:
+                    self._order_stats["rejected_orders"] += 1
+                elif order.status == OrderStatus.CANCELLED:
+                    self._order_stats["cancelled_orders"] += 1
+                
+                # Log status update
+                logger.info(f"Order {order.order_id} status updated to {order.status.value}")
+                
+                # Trigger event callbacks
+                event_type = self._map_status_to_event(order.status)
+                if event_type:
+                    self._trigger_event(event_type, order)
+                    
+    def _map_status_to_event(self, status: OrderStatus) -> Optional[str]:
+        """Map order status to event type."""
+        mapping = {
+            OrderStatus.SUBMITTED: OrderEventType.SUBMITTED,
+            OrderStatus.FILLED: OrderEventType.FILLED,
+            OrderStatus.PARTIALLY_FILLED: OrderEventType.PARTIALLY_FILLED,
+            OrderStatus.CANCELLED: OrderEventType.CANCELLED,
+            OrderStatus.REJECTED: OrderEventType.REJECTED,
+            OrderStatus.EXPIRED: OrderEventType.EXPIRED,
+        }
+        return mapping.get(status)
+    
+    def _trigger_event(self, event_type: str, order: Order, data: Optional[Any] = None) -> None:
+        """Trigger event callbacks."""
+        for callback in self._event_callbacks.get(event_type, []):
+            try:
+                callback(order, event_type, data)
+            except Exception as e:
+                logger.error(f"Error in event callback: {e}")
 
     async def _validate_order_risk(self, order: Order) -> bool:
         """Validate order with risk manager."""
@@ -452,3 +554,76 @@ class EnhancedOrderManager(ExecutionCallback):
                 callback(order, event_type, data)
             except Exception as e:
                 logger.error(f"Error in wildcard callback: {e}")
+    
+    async def initialize_synchronization(self) -> None:
+        """Initialize order state synchronization."""
+        if self.active_executor and self.active_executor in self.executors:
+            executor = self.executors[self.active_executor]
+            
+            # Create synchronizer
+            self.order_synchronizer = OrderStateSynchronizer(
+                order_manager=self,
+                executor=executor,
+                config=self.sync_config
+            )
+            
+            # Register callbacks
+            self.order_synchronizer.register_mismatch_callback(self._handle_sync_mismatch)
+            self.order_synchronizer.register_duplicate_callback(self._handle_duplicate_detection)
+            self.order_synchronizer.register_missed_fill_callback(self._handle_missed_fill)
+            
+            # Start synchronization
+            await self.order_synchronizer.start()
+            logger.info("Order state synchronization initialized")
+        else:
+            logger.warning("Cannot initialize synchronization - no active executor")
+    
+    async def stop_synchronization(self) -> None:
+        """Stop order state synchronization."""
+        if self.order_synchronizer:
+            await self.order_synchronizer.stop()
+            logger.info("Order state synchronization stopped")
+    
+    async def _handle_sync_mismatch(self, sync_state) -> None:
+        """Handle order synchronization mismatch."""
+        logger.warning(
+            f"Order sync mismatch for {sync_state.order_id}: "
+            f"status={sync_state.sync_status}, "
+            f"discrepancies={sync_state.discrepancies}"
+        )
+        
+        # Notify via event system
+        if sync_state.local_order:
+            await self._record_event(
+                sync_state.local_order,
+                "sync_mismatch",
+                {
+                    "sync_status": sync_state.sync_status.value,
+                    "discrepancies": sync_state.discrepancies
+                }
+            )
+    
+    async def _handle_duplicate_detection(self, duplicate_info) -> None:
+        """Handle duplicate order detection."""
+        logger.warning(
+            f"Duplicate order detected: {duplicate_info['symbol']} "
+            f"{duplicate_info['side']} {duplicate_info['quantity']}"
+        )
+        
+        # Could implement additional logic here
+    
+    async def _handle_missed_fill(self, order, fill) -> None:
+        """Handle missed fill from synchronization."""
+        logger.warning(
+            f"Processing missed fill for order {order.order_id}: "
+            f"{fill.quantity} @ {fill.price}"
+        )
+        
+        # Process the fill through normal channels
+        await self._handle_fill(fill)
+    
+    def get_sync_metrics(self) -> Optional[dict]:
+        """Get synchronization metrics."""
+        if self.order_synchronizer:
+            return self.order_synchronizer.get_metrics()
+        return None

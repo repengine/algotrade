@@ -15,13 +15,13 @@ import pandas as pd
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from adapters.yf_fetcher import YFinanceFetcher
-from backtests.run_backtests import BacktestEngine
-from core.data_handler import DataHandler
-from strategies.mean_reversion_equity import MeanReversionEquity
-from strategies.overnight_drift import OvernightDrift
-from strategies.trend_following_multi import TrendFollowingMulti
-from utils.logging import setup_logging
+from algostack.adapters.yf_fetcher import YFinanceFetcher
+from algostack.backtests.run_backtests import BacktestEngine
+from algostack.core.data_handler import DataHandler
+from algostack.strategies.mean_reversion_equity import MeanReversionEquity
+from algostack.strategies.overnight_drift import OvernightDrift
+from algostack.strategies.trend_following_multi import TrendFollowingMulti
+from algostack.utils.logging import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)

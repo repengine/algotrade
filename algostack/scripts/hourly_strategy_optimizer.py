@@ -15,7 +15,7 @@ import yfinance as yf
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from strategies.mean_reversion_equity import MeanReversionEquity
+from algostack.strategies.mean_reversion_equity import MeanReversionEquity
 
 
 class HourlyStrategyOptimizer:

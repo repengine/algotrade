@@ -5,12 +5,13 @@ Tests for enhanced order manager.
 import asyncio
 
 import pytest
-from adapters.paper_executor import PaperExecutor
-from core.engine.enhanced_order_manager import (
+
+from algostack.adapters.paper_executor import PaperExecutor
+from algostack.core.engine.enhanced_order_manager import (
     EnhancedOrderManager,
     OrderEventType,
 )
-from core.executor import (
+from algostack.core.executor import (
     OrderSide,
     OrderType,
 )

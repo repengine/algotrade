@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-from strategies.futures_momentum import FuturesMomentum
+from algostack.strategies.futures_momentum import FuturesMomentum
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

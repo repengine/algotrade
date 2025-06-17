@@ -3,11 +3,15 @@
 Test script to verify dashboard visualization fixes
 """
 
-
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+logger = logging.getLogger(__name__)
 
 # Generate sample data
 dates = pd.date_range(start="2023-01-01", end="2023-12-31", freq="D")
@@ -83,14 +87,17 @@ fig.update_layout(
     height=600, title="Test: Dual Y-Axis Visualization", hovermode="x unified"
 )
 
-# Print ranges to verify
-print(f"Price range: ${prices.min():.2f} - ${prices.max():.2f}")
-print(f"Returns range: {strategy_pct.min():.2f}% - {strategy_pct.max():.2f}%")
-print("\nIf visualization works correctly:")
-print("- Price should show on left y-axis with full range (not -1 to 1)")
-print("- Strategy returns should show on right y-axis as percentage")
-print("- Trade markers should appear on the price line")
+# Log ranges to verify
+logger.info(f"Price range: ${prices.min():.2f} - ${prices.max():.2f}")
+logger.info(f"Returns range: {strategy_pct.min():.2f}% - {strategy_pct.max():.2f}%")
+logger.info("\nIf visualization works correctly:")
+logger.info("- Price should show on left y-axis with full range (not -1 to 1)")
+logger.info("- Strategy returns should show on right y-axis as percentage")
+logger.info("- Trade markers should appear on the price line")
 
 # Save as HTML for inspection
-fig.write_html("/home/republic/algotrade/algostack/test_viz.html")
-print("\nVisualization saved to test_viz.html")
+import os
+
+output_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "test_viz.html")
+fig.write_html(output_path)
+logger.info(f"\nVisualization saved to {output_path}")

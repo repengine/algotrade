@@ -11,7 +11,11 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from api.models import (
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+
+from algostack.api.models import (
     AlertInfo,
     OrderCommand,
     OrderInfo,
@@ -28,10 +32,7 @@ from api.models import (
     WSMessage,
     WSSubscription,
 )
-from core.live_engine import LiveTradingEngine
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from algostack.core.live_engine import LiveTradingEngine
 
 logger = logging.getLogger(__name__)
 
@@ -658,3 +659,21 @@ def create_app(engine: Optional[LiveTradingEngine] = None) -> FastAPI:
         await api.stop_background_tasks()
 
     return api.app
+
+
+# Module-level instances for test compatibility
+app = None
+ws_manager = ConnectionManager()
+
+
+def get_trading_engine():
+    """Get trading engine instance (for dependency injection)."""
+    # This would be properly implemented with FastAPI dependency injection
+    return None
+
+
+def get_portfolio_engine():
+    """Get portfolio engine instance (for dependency injection)."""
+    # This would be properly implemented with FastAPI dependency injection
+    return None
+

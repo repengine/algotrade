@@ -6,7 +6,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class SystemStatus(str, Enum):
@@ -189,6 +189,15 @@ class OrderCommand(BaseModel):
     limit_price: Optional[float] = None
     stop_price: Optional[float] = None
     time_in_force: str = Field(default="day", pattern="^(day|gtc|ioc|fok)$")
+    
+    @model_validator(mode='after')
+    def validate_order_prices(self) -> 'OrderCommand':
+        """Validate that limit/stop orders have appropriate prices."""
+        if self.order_type in ['limit', 'stop_limit'] and self.limit_price is None:
+            raise ValueError(f"{self.order_type} order requires limit_price")
+        if self.order_type in ['stop', 'stop_limit'] and self.stop_price is None:
+            raise ValueError(f"{self.order_type} order requires stop_price")
+        return self
 
 
 class RiskOverride(BaseModel):

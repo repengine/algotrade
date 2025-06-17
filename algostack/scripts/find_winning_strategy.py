@@ -16,13 +16,13 @@ import pandas as pd
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from adapters.yf_fetcher import YFinanceFetcher
-from core.backtest_engine import BacktestEngine
-from core.data_handler import DataHandler
-from strategies.mean_reversion_equity import MeanReversionEquity
-from strategies.overnight_drift import OvernightDrift
-from strategies.trend_following_multi import TrendFollowingMulti
-from utils.logging import setup_logging
+from algostack.adapters.yf_fetcher import YFinanceFetcher
+from algostack.core.backtest_engine import BacktestEngine
+from algostack.core.data_handler import DataHandler
+from algostack.strategies.mean_reversion_equity import MeanReversionEquity
+from algostack.strategies.overnight_drift import OvernightDrift
+from algostack.strategies.trend_following_multi import TrendFollowingMulti
+from algostack.utils.logging import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -279,20 +279,20 @@ def main():
     logger.info(f"Results saved to {output_file}")
 
     # Print summary
-    print("\n" + "=" * 80)
-    print("WINNING STRATEGY FOUND!")
-    print("=" * 80)
-    print(f"Strategy: {winner['params']}")
-    print(f"Total Return: {winner['total_return']:.2f}%")
-    print(f"Sharpe Ratio: {winner['sharpe_ratio']:.2f}")
-    print(f"Max Drawdown: {winner['max_drawdown']:.2f}%")
-    print(f"Profitable Months: {winner['profitable_months']}/{winner['num_months']}")
-    print(
+    logger.info("\n" + "=" * 80)
+    logger.info("WINNING STRATEGY FOUND!")
+    logger.info("=" * 80)
+    logger.info(f"Strategy: {winner['params']}")
+    logger.info(f"Total Return: {winner['total_return']:.2f}%")
+    logger.info(f"Sharpe Ratio: {winner['sharpe_ratio']:.2f}")
+    logger.info(f"Max Drawdown: {winner['max_drawdown']:.2f}%")
+    logger.info(f"Profitable Months: {winner['profitable_months']}/{winner['num_months']}")
+    logger.info(
         f"Outperforming Months: {winner['outperforming_months']}/{winner['num_months']}"
     )
-    print(f"Avg Monthly Return: {winner['avg_monthly_return']*100:.2f}%")
-    print(f"Avg Outperformance: {winner['avg_outperformance']*100:.2f}%")
-    print("=" * 80)
+    logger.info(f"Avg Monthly Return: {winner['avg_monthly_return']*100:.2f}%")
+    logger.info(f"Avg Outperformance: {winner['avg_outperformance']*100:.2f}%")
+    logger.info("=" * 80)
 
 
 if __name__ == "__main__":

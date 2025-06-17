@@ -9,7 +9,8 @@ Note: These are integration tests that require:
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from adapters.ibkr_adapter import (
+
+from algostack.adapters.ibkr_adapter import (
     ConnectionState,
     Contract,
     IBKRAdapter,
@@ -24,12 +25,9 @@ class TestIBKRAdapter:
     """Test cases for IBKR adapter"""
 
     @pytest.fixture
-    async def adapter(self):
+    def adapter(self):
         """Create adapter instance"""
-        adapter = IBKRAdapter(gateway_url="https://localhost:5000", ssl_verify=False)
-        yield adapter
-        if adapter.session:
-            await adapter.disconnect()
+        return IBKRAdapter(gateway_url="https://localhost:5000", ssl_verify=False)
 
     @pytest.fixture
     def mock_response(self):
@@ -85,9 +83,20 @@ class TestIBKRAdapter:
         ]
         mock_response.json.return_value = mock_data
 
-        # Mock session
-        adapter.session = AsyncMock()
-        adapter.session.request.return_value.__aenter__.return_value = mock_response
+        # Create a proper mock session
+        from unittest.mock import MagicMock
+        mock_session = MagicMock()
+        
+        # Create async context manager for request
+        class AsyncContextManager:
+            async def __aenter__(self):
+                return mock_response
+            async def __aexit__(self, *args):
+                return None
+        
+        # Make request return the context manager directly (not a coroutine)
+        mock_session.request = MagicMock(return_value=AsyncContextManager())
+        adapter.session = mock_session
 
         # Search contracts
         contracts = await adapter.search_contracts("AAPL", "STK")
@@ -116,9 +125,20 @@ class TestIBKRAdapter:
         ]
         mock_response.json.return_value = mock_data
 
-        # Mock session
-        adapter.session = AsyncMock()
-        adapter.session.request.return_value.__aenter__.return_value = mock_response
+        # Create a proper mock session
+        from unittest.mock import MagicMock
+        mock_session = MagicMock()
+        
+        # Create async context manager for request
+        class AsyncContextManager:
+            async def __aenter__(self):
+                return mock_response
+            async def __aexit__(self, *args):
+                return None
+        
+        # Make request return the context manager directly (not a coroutine)
+        mock_session.request = MagicMock(return_value=AsyncContextManager())
+        adapter.session = mock_session
 
         # Get market data
         market_data = await adapter.get_market_data_snapshot([265598])
@@ -139,9 +159,20 @@ class TestIBKRAdapter:
         mock_data = {"id": "123456", "message": ["Order will be submitted"]}
         mock_response.json.return_value = mock_data
 
-        # Mock session
-        adapter.session = AsyncMock()
-        adapter.session.request.return_value.__aenter__.return_value = mock_response
+        # Create a proper mock session
+        from unittest.mock import MagicMock
+        mock_session = MagicMock()
+        
+        # Create async context manager for request
+        class AsyncContextManager:
+            async def __aenter__(self):
+                return mock_response
+            async def __aexit__(self, *args):
+                return None
+        
+        # Make request return the context manager directly (not a coroutine)
+        mock_session.request = MagicMock(return_value=AsyncContextManager())
+        adapter.session = mock_session
         adapter.selected_account = "DU123456"
 
         # Create order
@@ -160,14 +191,16 @@ class TestIBKRAdapter:
         # Place order
         await adapter.place_order(order)
 
-        # Verify request was made
-        adapter.session.request.assert_called()
-        call_args = adapter.session.request.call_args
-        assert call_args[0][0] == "POST"
-        assert "orders" in call_args[0][1]
+        # Verify requests were made (first order, then confirmation)
+        assert adapter.session.request.call_count == 2
+        
+        # Check first call (order placement)
+        first_call = adapter.session.request.call_args_list[0]
+        assert first_call[0][0] == "POST"
+        assert "orders" in first_call[0][1]
 
         # Verify order data
-        order_data = call_args[1]["json"]["orders"][0]
+        order_data = first_call[1]["json"]["orders"][0]
         assert order_data["acctId"] == "DU123456"
         assert order_data["conid"] == 265598
         assert order_data["orderType"] == "LMT"
@@ -175,6 +208,11 @@ class TestIBKRAdapter:
         assert order_data["quantity"] == 100
         assert order_data["price"] == 150.00
         assert order_data["tif"] == "DAY"
+        
+        # Check second call (confirmation)
+        second_call = adapter.session.request.call_args_list[1]
+        assert second_call[0][0] == "POST"
+        assert "reply/123456" in second_call[0][1]
 
     @pytest.mark.asyncio
     async def test_get_account_info(self, adapter, mock_response):
@@ -192,9 +230,20 @@ class TestIBKRAdapter:
         }
         mock_response.json.return_value = mock_data
 
-        # Mock session
-        adapter.session = AsyncMock()
-        adapter.session.request.return_value.__aenter__.return_value = mock_response
+        # Create a proper mock session
+        from unittest.mock import MagicMock
+        mock_session = MagicMock()
+        
+        # Create async context manager for request
+        class AsyncContextManager:
+            async def __aenter__(self):
+                return mock_response
+            async def __aexit__(self, *args):
+                return None
+        
+        # Make request return the context manager directly (not a coroutine)
+        mock_session.request = MagicMock(return_value=AsyncContextManager())
+        adapter.session = mock_session
         adapter.selected_account = "DU123456"
 
         # Get account info
@@ -227,9 +276,20 @@ class TestIBKRAdapter:
         ]
         mock_response.json.return_value = mock_data
 
-        # Mock session
-        adapter.session = AsyncMock()
-        adapter.session.request.return_value.__aenter__.return_value = mock_response
+        # Create a proper mock session
+        from unittest.mock import MagicMock
+        mock_session = MagicMock()
+        
+        # Create async context manager for request
+        class AsyncContextManager:
+            async def __aenter__(self):
+                return mock_response
+            async def __aexit__(self, *args):
+                return None
+        
+        # Make request return the context manager directly (not a coroutine)
+        mock_session.request = MagicMock(return_value=AsyncContextManager())
+        adapter.session = mock_session
         adapter.selected_account = "DU123456"
 
         # Get positions
@@ -272,9 +332,13 @@ class TestIBKRAdapter:
     @pytest.mark.asyncio
     async def test_error_handling(self, adapter):
         """Test error handling"""
-        # Mock session with error
-        adapter.session = AsyncMock()
-        adapter.session.request.side_effect = Exception("Connection error")
+        # Create a proper mock session that raises an exception
+        from unittest.mock import MagicMock
+        mock_session = MagicMock()
+        
+        # Make request raise an exception
+        mock_session.request.side_effect = Exception("Connection error")
+        adapter.session = mock_session
 
         # Test search contracts with error
         contracts = await adapter.search_contracts("AAPL")

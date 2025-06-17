@@ -7,8 +7,9 @@ from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from core.live_engine import LiveTradingEngine, TradingMode
-from strategies.base import BaseStrategy, Signal
+
+from algostack.core.live_engine import LiveTradingEngine, TradingMode
+from algostack.strategies.base import BaseStrategy, Signal
 
 
 class MockStrategy(BaseStrategy):
@@ -17,6 +18,18 @@ class MockStrategy(BaseStrategy):
     def __init__(self, symbol="AAPL"):
         self.symbol = symbol
         self.signals_to_generate = []
+
+    def init(self):
+        """Initialize strategy."""
+        pass
+
+    def next(self):
+        """Process next data point."""
+        pass
+
+    def size(self, signal):
+        """Calculate position size."""
+        return 100  # Fixed size for testing
 
     def generate_signals(self, data):
         """Return pre-configured signals."""
@@ -120,27 +133,33 @@ class TestLiveTradingEngine:
         # Strong signal - should trade
         strong_signal = Signal(
             symbol="AAPL",
-            direction=1,
+            direction="LONG",
             strength=0.8,
             timestamp=datetime.now(),
+            strategy_id="test_strategy",
+            price=150.0
         )
         assert engine._should_trade_signal(strong_signal) is True
 
         # Weak signal - should not trade
         weak_signal = Signal(
             symbol="AAPL",
-            direction=1,
+            direction="LONG",
             strength=0.3,
             timestamp=datetime.now(),
+            strategy_id="test_strategy",
+            price=150.0
         )
         assert engine._should_trade_signal(weak_signal) is False
 
         # Unknown symbol - should not trade
         unknown_signal = Signal(
             symbol="UNKNOWN",
-            direction=1,
+            direction="LONG",
             strength=0.8,
             timestamp=datetime.now(),
+            strategy_id="test_strategy",
+            price=100.0
         )
         assert engine._should_trade_signal(unknown_signal) is False
 
@@ -152,9 +171,11 @@ class TestLiveTradingEngine:
         # Strong signal
         signal = Signal(
             symbol="AAPL",
-            direction=1,
+            direction="LONG",
             strength=1.0,
             timestamp=datetime.now(),
+            strategy_id="test_strategy",
+            price=150.0
         )
 
         # 2% risk * 100k * 1.0 strength / $150 = ~13 shares
@@ -164,9 +185,11 @@ class TestLiveTradingEngine:
         # Weak signal
         weak_signal = Signal(
             symbol="AAPL",
-            direction=1,
+            direction="LONG",
             strength=0.5,
             timestamp=datetime.now(),
+            strategy_id="test_strategy",
+            price=150.0
         )
 
         # 2% risk * 100k * 0.5 strength / $150 = ~6 shares
@@ -203,9 +226,11 @@ class TestLiveTradingEngine:
         # Create signal
         signal = Signal(
             symbol="AAPL",
-            direction=1,
+            direction="LONG",
             strength=0.8,
             timestamp=datetime.now(),
+            strategy_id="test_strategy",
+            price=150.0
         )
 
         # Process signal

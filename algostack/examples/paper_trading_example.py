@@ -8,9 +8,11 @@ live trading engine in paper trading mode.
 import asyncio
 import logging
 
-from core.live_engine import LiveTradingEngine, TradingMode
-from strategies.mean_reversion_equity import MeanReversionEquityStrategy
-from strategies.trend_following_multi import TrendFollowingMultiStrategy
+from algostack.core.live_engine import LiveTradingEngine, TradingMode
+from algostack.strategies.mean_reversion_equity import MeanReversionEquityStrategy
+from algostack.strategies.trend_following_multi import TrendFollowingMultiStrategy
+
+logger = logging.getLogger(__name__)
 
 
 async def main():
@@ -87,33 +89,33 @@ async def main():
     # Create and start engine
     engine = LiveTradingEngine(config)
 
-    print("=" * 60)
-    print("AlgoStack Paper Trading Example")
-    print("=" * 60)
-    print(f"Mode: {engine.mode}")
-    print(f"Strategies: {list(engine.strategies.keys())}")
-    print(f"Active Symbols: {engine._active_symbols}")
-    print(f"Initial Capital: ${config['portfolio_config']['initial_capital']:,.2f}")
-    print("=" * 60)
-    print("\nStarting trading engine...")
-    print("Press Ctrl+C to stop\n")
+    logger.info("=" * 60)
+    logger.info("AlgoStack Paper Trading Example")
+    logger.info("=" * 60)
+    logger.info(f"Mode: {engine.mode}")
+    logger.info(f"Strategies: {list(engine.strategies.keys())}")
+    logger.info(f"Active Symbols: {engine._active_symbols}")
+    logger.info(f"Initial Capital: ${config['portfolio_config']['initial_capital']:,.2f}")
+    logger.info("=" * 60)
+    logger.info("\nStarting trading engine...")
+    logger.info("Press Ctrl+C to stop\n")
 
     try:
         # Run engine
         await engine.start()
 
     except KeyboardInterrupt:
-        print("\n\nShutting down trading engine...")
+        logger.info("\n\nShutting down trading engine...")
         await engine.stop()
 
         # Print final statistics
-        print("\n" + "=" * 60)
-        print("Final Statistics")
-        print("=" * 60)
-        print(f"Total Signals: {engine.stats['total_signals']}")
-        print(f"Total Orders: {engine.stats['total_orders']}")
-        print(f"Total Fills: {engine.stats['total_fills']}")
-        print(f"Errors: {engine.stats['errors']}")
+        logger.info("\n" + "=" * 60)
+        logger.info("Final Statistics")
+        logger.info("=" * 60)
+        logger.info(f"Total Signals: {engine.stats['total_signals']}")
+        logger.info(f"Total Orders: {engine.stats['total_orders']}")
+        logger.info(f"Total Fills: {engine.stats['total_fills']}")
+        logger.info(f"Errors: {engine.stats['errors']}")
 
         # Get final portfolio value
         portfolio_value = engine.portfolio_engine.total_value
@@ -121,9 +123,9 @@ async def main():
         pnl = portfolio_value - initial_capital
         pnl_pct = (pnl / initial_capital) * 100
 
-        print(f"\nPortfolio Value: ${portfolio_value:,.2f}")
-        print(f"Total P&L: ${pnl:,.2f} ({pnl_pct:+.2f}%)")
-        print("=" * 60)
+        logger.info(f"\nPortfolio Value: ${portfolio_value:,.2f}")
+        logger.info(f"Total P&L: ${pnl:,.2f} ({pnl_pct:+.2f}%)")
+        logger.info("=" * 60)
 
 
 if __name__ == "__main__":

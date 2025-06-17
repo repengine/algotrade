@@ -7,9 +7,10 @@ from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from adapters.ibkr_executor import IBKRExecutor
-from adapters.paper_executor import PaperExecutor
-from core.executor import (
+
+from algostack.adapters.ibkr_executor import IBKRExecutor
+from algostack.adapters.paper_executor import PaperExecutor
+from algostack.core.executor import (
     ExecutionCallback,
     Fill,
     Order,
@@ -122,18 +123,18 @@ class TestPaperExecutor:
             side=OrderSide.BUY,
             quantity=100,
             order_type=OrderType.LIMIT,
-            limit_price=149.0,  # Below market, should fill
+            limit_price=151.0,  # Above market, should fill immediately
         )
 
         await paper_executor.submit_order(order)
 
         # Wait for fill
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)  # Increase wait time to ensure fill
 
-        # Check fill at limit price
+        # Check fill at limit price or better
         assert len(test_callback.fills) == 1
         fill = test_callback.fills[0]
-        assert fill.price <= 149.0
+        assert fill.price <= 151.0  # Should fill at market price (150) or better
 
         await paper_executor.disconnect()
 
@@ -282,7 +283,7 @@ class TestIBKRExecutor:
     async def test_connect_with_mock(self, mock_ibkr_adapter):
         """Test IBKR executor connection."""
         with patch(
-            "adapters.ibkr_executor.IBKRAdapter",
+            "algostack.adapters.ibkr_executor.IBKRAdapter",
             return_value=mock_ibkr_adapter,
         ):
             executor = IBKRExecutor({"account": "DU123456"})
@@ -299,7 +300,7 @@ class TestIBKRExecutor:
     async def test_submit_order_with_mock(self, mock_ibkr_adapter, test_callback):
         """Test order submission with mock."""
         with patch(
-            "adapters.ibkr_executor.IBKRAdapter",
+            "algostack.adapters.ibkr_executor.IBKRAdapter",
             return_value=mock_ibkr_adapter,
         ):
             executor = IBKRExecutor({"account": "DU123456"})

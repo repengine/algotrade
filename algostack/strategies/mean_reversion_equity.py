@@ -13,12 +13,12 @@ except ImportError:
 
     talib = create_talib_compatible_module()
 
-from strategies.base import BaseStrategy, RiskContext, Signal
-from utils.constants import (
+from algostack.strategies.base import BaseStrategy, RiskContext, Signal
+from algostack.utils.constants import (
     TRADING_DAYS_PER_YEAR,
     VOLATILITY_SCALAR,
 )
-from utils.validators.strategy_validators import validate_mean_reversion_config
+from algostack.utils.validators.strategy_validators import validate_mean_reversion_config
 
 
 class MeanReversionEquity(BaseStrategy):

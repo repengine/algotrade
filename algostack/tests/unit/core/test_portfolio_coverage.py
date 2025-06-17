@@ -1,20 +1,18 @@
 """Comprehensive test suite to achieve 100% coverage for portfolio.py module."""
 
-import pytest
 from datetime import datetime, timedelta
 from typing import Any
-from unittest.mock import Mock, patch
-import pandas as pd
-import numpy as np
+from unittest.mock import patch
 
-from core.portfolio import PortfolioEngine, Position
-from strategies.base import Signal
-from utils.constants import (
-    DEFAULT_INITIAL_CAPITAL,
+import numpy as np
+import pandas as pd
+import pytest
+
+from algostack.core.portfolio import PortfolioEngine, Position
+from algostack.strategies.base import Signal
+from algostack.utils.constants import (
     DEFAULT_KELLY_FRACTION,
     MAX_KELLY_FRACTION,
-    MIN_TRADES_FOR_KELLY,
-    TRADING_DAYS_PER_YEAR,
 )
 
 
@@ -332,7 +330,7 @@ class TestPortfolioEngineComprehensive:
         }
 
         allocations = portfolio.allocate_capital(signals, market_data)
-        
+
         # Check Kelly fractions were applied
         assert "strategy1" in allocations
         assert "strategy2" in allocations
@@ -350,7 +348,7 @@ class TestPortfolioEngineComprehensive:
             entry_time=datetime.now(),
             current_price=150.0,
         )
-        
+
         signal = Signal(
             timestamp=datetime.now(),
             symbol="GOOGL",
@@ -362,12 +360,12 @@ class TestPortfolioEngineComprehensive:
         )
 
         position_size, stop_loss = portfolio.size_position(signal, 0.2)
-        
+
         # Position should be reduced due to margin
         max_position_value = portfolio.current_equity * 0.2
         actual_position_value = position_size * signal.price
         assert actual_position_value <= max_position_value
-        
+
         # Check ATR-based stop loss
         assert stop_loss == signal.price - (2 * signal.atr)
 
@@ -384,7 +382,7 @@ class TestPortfolioEngineComprehensive:
         )
 
         position_size, stop_loss = portfolio.size_position(signal, 0.1)
-        
+
         # Stop loss should be above entry for short
         assert stop_loss == signal.price + (2 * signal.atr)
 
@@ -413,7 +411,7 @@ class TestPortfolioEngineComprehensive:
         )
 
         position = portfolio.execute_signal(signal, 100, 160.0)
-        
+
         # Should have closed long and opened short
         assert position is not None
         assert position.direction == "SHORT"
@@ -448,7 +446,7 @@ class TestPortfolioEngineComprehensive:
         )
 
         result = portfolio.close_position("AAPL", 160.0)
-        
+
         assert result is not None
         assert "momentum" in portfolio.strategy_performance
         perf = portfolio.strategy_performance["momentum"]
@@ -470,7 +468,7 @@ class TestPortfolioEngineComprehensive:
         )
 
         result = portfolio.close_position("GOOGL", 2850.0)
-        
+
         perf = portfolio.strategy_performance["momentum"]
         assert perf["trades"] == 2
         assert perf["wins"] == 1
@@ -488,7 +486,7 @@ class TestPortfolioEngineComprehensive:
         }
 
         portfolio.update_strategy_kelly_fractions()
-        
+
         assert portfolio.strategy_kelly_fractions["test"] == DEFAULT_KELLY_FRACTION
 
     def test_update_strategy_kelly_zero_loss(self, portfolio):
@@ -502,7 +500,7 @@ class TestPortfolioEngineComprehensive:
         }
 
         portfolio.update_strategy_kelly_fractions()
-        
+
         # Kelly fraction is capped at 25% (MAX_KELLY_FRACTION * 0.25)
         assert portfolio.strategy_kelly_fractions["test"] == 0.25
 
@@ -517,7 +515,7 @@ class TestPortfolioEngineComprehensive:
         }
 
         portfolio.update_strategy_kelly_fractions()
-        
+
         kelly = portfolio.strategy_kelly_fractions["test"]
         assert 0 < kelly <= MAX_KELLY_FRACTION * 0.25
 
@@ -594,7 +592,7 @@ class TestPortfolioEngineComprehensive:
         """Test global risk check with drawdown exceeding limit."""
         # Set high drawdown
         portfolio.current_drawdown = 0.25  # 25% exceeds 20% limit
-        
+
         # Add positions
         portfolio.positions["AAPL"] = Position(
             symbol="AAPL",
@@ -616,7 +614,7 @@ class TestPortfolioEngineComprehensive:
         )
 
         is_ok, exit_signals = portfolio.global_risk_check()
-        
+
         assert not is_ok
         assert len(exit_signals) == 2
         assert all(s.direction == "FLAT" for s in exit_signals)
@@ -630,7 +628,7 @@ class TestPortfolioEngineComprehensive:
         portfolio.current_equity = 110000
         portfolio.peak_equity = 115000
         portfolio.current_drawdown = (115000 - 110000) / 115000
-        
+
         # Add positions
         portfolio.positions["AAPL"] = Position(
             symbol="AAPL",
@@ -650,7 +648,7 @@ class TestPortfolioEngineComprehensive:
             entry_time=datetime.now(),
             current_price=2750.0,
         )
-        
+
         # Add strategy performance
         portfolio.strategy_performance["momentum"] = {
             "trades": 50,
@@ -660,35 +658,35 @@ class TestPortfolioEngineComprehensive:
             "loss_pnl": 3000,
         }
         portfolio.strategy_kelly_fractions["momentum"] = 0.15
-        
+
         summary = portfolio.get_portfolio_summary()
-        
+
         # Check all sections exist
         assert "portfolio_metrics" in summary
         assert "strategy_exposure" in summary
         assert "strategy_performance" in summary
         assert "risk_status" in summary
         assert "positions" in summary
-        
+
         # Check metrics
         metrics = summary["portfolio_metrics"]
-        assert metrics["total_equity"] == 110000
+        assert metrics["current_equity"] == 110000
         assert metrics["position_count"] == 2
         assert metrics["long_positions"] == 1
         assert metrics["short_positions"] == 1
-        
+
         # Check strategy exposure
         assert summary["strategy_exposure"]["momentum"] == 100 * 155
         assert summary["strategy_exposure"]["mean_reversion"] == 10 * 2750
-        
+
         # Check strategy performance
         assert "momentum" in summary["strategy_performance"]
         assert summary["strategy_performance"]["momentum"]["win_rate"] == 0.6
         assert summary["strategy_performance"]["momentum"]["kelly_fraction"] == 0.15
-        
+
         # Check risk status
         assert summary["risk_status"]["current_drawdown"] == portfolio.current_drawdown
-        
+
         # Check positions
         assert len(summary["positions"]) == 2
         assert summary["positions"]["AAPL"]["unrealized_pnl"] == 500.0
@@ -697,7 +695,7 @@ class TestPortfolioEngineComprehensive:
         """Test portfolio metrics calculation including daily P&L."""
         # Add some daily P&L history
         portfolio.daily_pnl = [100, -50, 200, -100, 150]
-        
+
         # Add positions with unrealized P&L
         portfolio.positions["AAPL"] = Position(
             symbol="AAPL",
@@ -708,12 +706,12 @@ class TestPortfolioEngineComprehensive:
             entry_time=datetime.now(),
             current_price=155.0,
         )
-        
+
         portfolio.current_equity = 101000
         portfolio.peak_equity = 105000
-        
+
         metrics = portfolio.calculate_portfolio_metrics()
-        
+
         assert metrics["unrealized_pnl"] == 500.0
         assert metrics["realized_pnl"] == 500.0  # 101000 - 100000 - 500
         assert metrics["margin_usage"] > 0
@@ -730,12 +728,12 @@ class TestPortfolioEngineComprehensive:
                 price=150.0,
             ),
         ]
-        
+
         # Empty market data
         market_data = {}
-        
+
         allocations = portfolio.allocate_capital(signals, market_data)
-        
+
         # Should still allocate with default volatility
         assert len(allocations) > 0
         assert "strategy1" in allocations
@@ -745,7 +743,7 @@ class TestPortfolioEngineComprehensive:
         # Test with empty signals
         allocations = portfolio.allocate_capital([], {})
         assert allocations == {}
-        
+
         # Test position sizing with zero price
         signal = Signal(
             timestamp=datetime.now(),
@@ -757,11 +755,11 @@ class TestPortfolioEngineComprehensive:
         )
         position_size, _ = portfolio.size_position(signal, 0.1)
         assert position_size == 0
-        
+
         # Test close position that doesn't exist
         result = portfolio.close_position("NONEXISTENT", 100.0)
         assert result is None
-        
+
         # Test check stops with missing price
         portfolio.positions["AAPL"] = Position(
             symbol="AAPL",
@@ -782,13 +780,13 @@ class TestPortfolioEngineComprehensive:
         # Set initial state
         portfolio.current_equity = 100000
         portfolio.peak_equity = 100000
-        
+
         # Equity increases - should update peak
         portfolio.current_equity = 110000
         metrics = portfolio.calculate_portfolio_metrics()
         assert portfolio.peak_equity == 110000
         assert metrics["current_drawdown"] == 0.0
-        
+
         # Equity decreases - peak should remain
         portfolio.current_equity = 105000
         metrics = portfolio.calculate_portfolio_metrics()
@@ -807,12 +805,12 @@ class TestPortfolioEngineComprehensive:
                 price=150.0,
             ),
         ]
-        
+
         # Market data with only close prices
         market_data = {
             "AAPL": pd.DataFrame({"close": [148, 150, 149, 151, 152]})
         }
-        
+
         allocations = portfolio.allocate_capital(signals, market_data)
         assert len(allocations) > 0
         assert "strategy1" in allocations
@@ -822,7 +820,7 @@ class TestPortfolioEngineComprehensive:
         # Mock a scenario where allocations sum to zero
         portfolio.config["use_equal_risk"] = False
         portfolio.strategy_allocations = {}  # Empty allocations
-        
+
         signals = [
             Signal(
                 timestamp=datetime.now(),
@@ -833,9 +831,9 @@ class TestPortfolioEngineComprehensive:
                 price=150.0,
             ),
         ]
-        
+
         market_data = {"AAPL": pd.DataFrame({"returns": [0.01, -0.005]})}
-        
+
         allocations = portfolio.allocate_capital(signals, market_data)
         # Should handle gracefully
         assert isinstance(allocations, dict)
@@ -851,9 +849,9 @@ class TestPortfolioEngineComprehensive:
             price=150.0,
             metadata={"stop_loss": 145.0},
         )
-        
+
         position_size, stop_loss = portfolio.size_position(signal, 0.1)
-        
+
         # Should use metadata stop loss
         assert stop_loss == 145.0
         assert position_size > 0
@@ -870,7 +868,7 @@ class TestPortfolioEngineComprehensive:
             entry_time=datetime.now(),
             current_price=155.0,
         )
-        
+
         # Signal in same direction
         signal = Signal(
             timestamp=datetime.now(),
@@ -880,9 +878,9 @@ class TestPortfolioEngineComprehensive:
             strategy_id="test",
             price=155.0,
         )
-        
+
         position = portfolio.execute_signal(signal, 50, 150.0)
-        
+
         # Should not create new position
         assert position is None
         assert len(portfolio.positions) == 1
@@ -898,9 +896,9 @@ class TestPortfolioEngineComprehensive:
             price=150.0,
             metadata={"take_profit": 160.0, "custom_data": "test"},
         )
-        
+
         position = portfolio.execute_signal(signal, 100, 145.0)
-        
+
         assert position is not None
         assert position.metadata == signal.metadata
         assert position.metadata["take_profit"] == 160.0
@@ -914,15 +912,15 @@ class TestPortfolioEngineComprehensive:
             "win_pnl": 0,
             "loss_pnl": 5000,
         }
-        
+
         # When win_rate = 0, avg_win = 0, b = 0, should handle gracefully
         # The function should catch this case before division
         portfolio.update_strategy_kelly_fractions()
-        
+
         # With zero wins, Kelly should be 0 (clamped at min)
         kelly = portfolio.strategy_kelly_fractions["test"]
         assert kelly == 0  # Negative Kelly should be clamped to 0
-    
+
     def test_update_kelly_fraction_zero_avg_loss(self, portfolio):
         """Test Kelly fraction when avg_loss is zero."""
         portfolio.strategy_performance["test"] = {
@@ -932,9 +930,9 @@ class TestPortfolioEngineComprehensive:
             "win_pnl": 5000,
             "loss_pnl": 0,  # No loss amount
         }
-        
+
         portfolio.update_strategy_kelly_fractions()
-        
+
         # When avg_loss = 0, should use default 0.5
         assert portfolio.strategy_kelly_fractions["test"] == 0.5
 
@@ -959,19 +957,19 @@ class TestPortfolioEngineComprehensive:
             entry_time=datetime.now(),
             current_price=300.0,
         )
-        
+
         # Set high correlation
         portfolio.correlation_matrix = pd.DataFrame(
-            {"AAPL": [1.0, 0.95], "MSFT": [0.95, 1.0]}, 
+            {"AAPL": [1.0, 0.95], "MSFT": [0.95, 1.0]},
             index=["AAPL", "MSFT"]
         )
-        
+
         # Drawdown within limits
         portfolio.current_drawdown = 0.10
-        
+
         with patch("core.portfolio.logger.warning") as mock_warning:
             is_ok, exit_signals = portfolio.global_risk_check()
-            
+
             # Should log violations but not trigger risk-off
             assert is_ok
             assert len(exit_signals) == 0
@@ -984,23 +982,23 @@ class TestPortfolioEngineComprehensive:
         portfolio.current_equity = 100000
         metrics = portfolio.calculate_portfolio_metrics()
         assert metrics["current_drawdown"] == 0
-        
+
         # Test margin usage with zero equity
         portfolio.current_equity = 0
         metrics = portfolio.calculate_portfolio_metrics()
         assert metrics["margin_usage"] == 0
-    
+
     def test_check_risk_limits_drawdown_violation(self, portfolio):
         """Test risk limit check for drawdown violation specifically."""
         # Set drawdown exceeding limit
         portfolio.current_drawdown = 0.25  # 25% exceeds 20% limit
-        
+
         is_compliant, violations = portfolio.check_risk_limits()
-        
+
         assert not is_compliant
         assert len(violations) >= 1
         assert any("Drawdown" in v and "25.0%" in v for v in violations)
-    
+
     def test_allocate_capital_flat_signals(self, portfolio):
         """Test capital allocation with FLAT signals (should be ignored)."""
         signals = [
@@ -1021,18 +1019,18 @@ class TestPortfolioEngineComprehensive:
                 price=2800.0,
             ),
         ]
-        
+
         market_data = {
             "AAPL": pd.DataFrame({"returns": [0.01, -0.005]}),
             "GOOGL": pd.DataFrame({"returns": [0.015, -0.01]}),
         }
-        
+
         allocations = portfolio.allocate_capital(signals, market_data)
-        
+
         # Should only allocate to strategy2
         assert "strategy1" not in allocations
         assert "strategy2" in allocations
-    
+
     def test_allocate_capital_empty_returns_dataframe(self, portfolio):
         """Test capital allocation when returns DataFrame is empty."""
         signals = [
@@ -1045,18 +1043,18 @@ class TestPortfolioEngineComprehensive:
                 price=150.0,
             ),
         ]
-        
+
         # Market data with empty returns
         market_data = {
             "AAPL": pd.DataFrame({"returns": []})  # Empty
         }
-        
+
         allocations = portfolio.allocate_capital(signals, market_data)
-        
+
         # Should still allocate with default volatility
         assert "strategy1" in allocations
         assert allocations["strategy1"] > 0
-    
+
     def test_allocate_capital_zero_volatility(self, portfolio):
         """Test capital allocation when strategy volatility is zero."""
         # Create multiple signals to trigger volatility calculation
@@ -1078,15 +1076,15 @@ class TestPortfolioEngineComprehensive:
                 price=2800.0,
             ),
         ]
-        
+
         # Market data with zero volatility for AAPL (all returns are 0)
         market_data = {
             "AAPL": pd.DataFrame({"returns": [0.0, 0.0, 0.0, 0.0, 0.0]}),
             "GOOGL": pd.DataFrame({"returns": [0.01, -0.01, 0.015, -0.005, 0.01]}),
         }
-        
+
         allocations = portfolio.allocate_capital(signals, market_data)
-        
+
         # Strategy with zero volatility should get 0 allocation
         assert allocations["zero_vol_strategy"] == 0.0
         # Normal strategy should get positive allocation

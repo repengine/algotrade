@@ -5,6 +5,7 @@ description = "Disciplined multi-strategy algorithmic trading stack"
 authors = ["AlgoStack Team"]
 readme = "README.md"
 packages = [
+    {include = "algostack"},
     {include = "adapters"},
     {include = "api"},
     {include = "backtests"},
@@ -29,7 +30,7 @@ ib-insync = "^0.9.86"
 robin-stocks = "^3.0.8"
 pydantic = "^2.0.0"
 PyYAML = "^6.0"
-apscheduler = "^3.10.0"
+apscheduler = ">=3.10.4"
 fastapi = "^0.103.0"
 uvicorn = "^0.23.0"
 sqlalchemy = "^2.0.0"
@@ -66,6 +67,8 @@ pytest-mock = ">=3.11.0"
 httpx = ">=0.24.0"
 faker = ">=19.0.0"
 streamlit = ">=1.29.0"
+pre-commit = "^4.2.0"
+coverage = "^7.8.2"
 
 [tool.poetry.group.optional.dependencies]
 matplotlib = "^3.7.0"
@@ -147,6 +150,10 @@ addopts = """
 """
 
 pythonpath = ["."]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
 
 # Temporarily disabled for test infrastructure setup:
 # --cov=algostack

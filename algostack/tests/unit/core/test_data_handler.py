@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from core.data_handler import DataHandler
+from algostack.core.data_handler import DataHandler
 
 
 class TestDataHandler:

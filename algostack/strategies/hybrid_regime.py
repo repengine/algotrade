@@ -14,10 +14,10 @@ except ImportError:
 
     talib = create_talib_compatible_module()
 
-from strategies.base import BaseStrategy, RiskContext, Signal
-from strategies.mean_reversion_equity import MeanReversionEquity
-from strategies.trend_following_multi import TrendFollowingMulti
-from utils.validators.strategy_validators import validate_hybrid_regime_config
+from algostack.strategies.base import BaseStrategy, RiskContext, Signal
+from algostack.strategies.mean_reversion_equity import MeanReversionEquity
+from algostack.strategies.trend_following_multi import TrendFollowingMulti
+from algostack.utils.validators.strategy_validators import validate_hybrid_regime_config
 
 
 class HybridRegime(BaseStrategy):

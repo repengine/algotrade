@@ -5,21 +5,26 @@ Quick Backtest Example
 This script demonstrates how to quickly backtest a single strategy.
 """
 
+import logging
 import os
 import sys
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backtests.run_backtests import BacktestEngine
-from strategies.mean_reversion_equity import MeanReversionEquityStrategy
-from strategies.trend_following_multi import TrendFollowingMultiStrategy
+from algostack.backtests.run_backtests import BacktestEngine
+from algostack.strategies.mean_reversion_equity import MeanReversionEquityStrategy
+from algostack.strategies.trend_following_multi import TrendFollowingMultiStrategy
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 
 def backtest_mean_reversion():
     """Run a simple mean reversion backtest."""
-    print("Running Mean Reversion Strategy Backtest")
-    print("=" * 50)
+    logger.info("Running Mean Reversion Strategy Backtest")
+    logger.info("=" * 50)
 
     # Create strategy
     strategy = MeanReversionEquityStrategy(
@@ -52,8 +57,8 @@ def backtest_mean_reversion():
 
 def backtest_trend_following():
     """Run a trend following backtest."""
-    print("\n\nRunning Trend Following Strategy Backtest")
-    print("=" * 50)
+    logger.info("\n\nRunning Trend Following Strategy Backtest")
+    logger.info("=" * 50)
 
     # Create strategy
     strategy = TrendFollowingMultiStrategy(
@@ -87,29 +92,29 @@ def backtest_trend_following():
 
 def compare_strategies():
     """Compare multiple strategies."""
-    print("\n\nStrategy Comparison")
-    print("=" * 50)
+    logger.info("\n\nStrategy Comparison")
+    logger.info("=" * 50)
 
     # Run both strategies
     mr_metrics = backtest_mean_reversion()
     tf_metrics = backtest_trend_following()
 
     # Compare key metrics
-    print(f"\n{'Metric':<20} {'Mean Reversion':>15} {'Trend Following':>15}")
-    print("-" * 50)
-    print(
+    logger.info(f"\n{'Metric':<20} {'Mean Reversion':>15} {'Trend Following':>15}")
+    logger.info("-" * 50)
+    logger.info(
         f"{'Total Return':<20} {mr_metrics['total_return']:>14.1f}% {tf_metrics['total_return']:>14.1f}%"
     )
-    print(
+    logger.info(
         f"{'Sharpe Ratio':<20} {mr_metrics['sharpe_ratio']:>15.2f} {tf_metrics['sharpe_ratio']:>15.2f}"
     )
-    print(
+    logger.info(
         f"{'Max Drawdown':<20} {mr_metrics['max_drawdown']:>14.1f}% {tf_metrics['max_drawdown']:>14.1f}%"
     )
-    print(
+    logger.info(
         f"{'Win Rate':<20} {mr_metrics['win_rate']:>14.1%} {tf_metrics['win_rate']:>14.1%}"
     )
-    print(
+    logger.info(
         f"{'Total Trades':<20} {mr_metrics['total_trades']:>15} {tf_metrics['total_trades']:>15}"
     )
 
@@ -134,4 +139,4 @@ if __name__ == "__main__":
     else:
         compare_strategies()
 
-    print("\nBacktest complete!")
+    logger.info("\nBacktest complete!")

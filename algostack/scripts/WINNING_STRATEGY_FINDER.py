@@ -18,8 +18,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Import strategies
-from strategies.mean_reversion_equity import MeanReversionEquity
-from strategies.trend_following_multi import TrendFollowingMulti
+from algostack.strategies.mean_reversion_equity import MeanReversionEquity
+from algostack.strategies.trend_following_multi import TrendFollowingMulti
 
 
 class StrategyTester:
@@ -267,18 +267,18 @@ def main():
         # Show best strategy
         best = winning_configs[0]
 
-        print("\n" + "=" * 80)
-        print("🏆 BEST WINNING STRATEGY")
-        print("=" * 80)
-        print(f"Strategy Type: {best['strategy']}")
-        print(f"Total Return: {best['results']['total_return']:.2f}%")
-        print(f"Average Monthly Return: {best['results']['avg_monthly_return']:.2f}%")
-        print(f"Average Outperformance: {best['results']['avg_outperformance']:.2f}%")
-        print(f"Min Monthly Return: {best['results']['min_monthly_return']:.2f}%")
-        print(f"Max Monthly Return: {best['results']['max_monthly_return']:.2f}%")
-        print("\nConfiguration:")
-        print(json.dumps(best["config"], indent=2))
-        print("=" * 80)
+        logger.info("\n" + "=" * 80)
+        logger.info("🏆 BEST WINNING STRATEGY")
+        logger.info("=" * 80)
+        logger.info(f"Strategy Type: {best['strategy']}")
+        logger.info(f"Total Return: {best['results']['total_return']:.2f}%")
+        logger.info(f"Average Monthly Return: {best['results']['avg_monthly_return']:.2f}%")
+        logger.info(f"Average Outperformance: {best['results']['avg_outperformance']:.2f}%")
+        logger.info(f"Min Monthly Return: {best['results']['min_monthly_return']:.2f}%")
+        logger.info(f"Max Monthly Return: {best['results']['max_monthly_return']:.2f}%")
+        logger.info("\nConfiguration:")
+        logger.info(json.dumps(best["config"], indent=2))
+        logger.info("=" * 80)
 
         # Create ready-to-use config file
         production_config = {
@@ -298,11 +298,11 @@ def main():
         with open(prod_filename, "w") as f:
             json.dump(production_config, f, indent=2)
 
-        print(f"\n✅ PRODUCTION CONFIG SAVED TO: {prod_filename}")
-        print("\n🎉 SUCCESS! You now have a strategy that:")
-        print("   - Is profitable EVERY month for 24 months")
-        print("   - Beats buy-and-hold EVERY month")
-        print("   - Ready for production use")
+        logger.info(f"\n✅ PRODUCTION CONFIG SAVED TO: {prod_filename}")
+        logger.info("\n🎉 SUCCESS! You now have a strategy that:")
+        logger.info("   - Is profitable EVERY month for 24 months")
+        logger.info("   - Beats buy-and-hold EVERY month")
+        logger.info("   - Ready for production use")
 
     else:
         logger.warning("No perfect strategies found in this parameter search.")

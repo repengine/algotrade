@@ -23,7 +23,7 @@ class Signal(BaseModel):
 
     @field_validator("strength")
     @classmethod
-    def validate_strength(cls, v: float, info) -> float:
+    def validate_strength(cls, v: float, info: Any) -> float:
         direction = info.data.get("direction") if info.data else None
         if direction == "FLAT" and v != 0:
             raise ValueError("FLAT signals must have strength=0")
@@ -161,7 +161,7 @@ class BaseStrategy(ABC):
             and (data["low"] <= data["close"]).all()
         )
 
-        return valid_ohlc
+        return bool(valid_ohlc)
 
     def validate_config(self, config: dict[str, Any]) -> dict[str, Any]:
         """
@@ -199,12 +199,12 @@ class BaseStrategy(ABC):
     def generate_signals(self, data: pd.DataFrame) -> list[Signal]:
         """
         Generate trading signals from market data.
-        
+
         This is a default implementation that can be overridden by subclasses.
-        
+
         Args:
             data: DataFrame with OHLCV data
-            
+
         Returns:
             List of trading signals
         """

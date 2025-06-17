@@ -37,10 +37,8 @@ from plotly.subplots import make_subplots
 sys.modules["talib"] = create_talib_compatible_module()
 
 # Import Alpha Vantage fetcher directly to avoid adapter __init__ imports
-import sys
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "adapters"))
-from av_fetcher import AlphaVantageFetcher
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from algostack.adapters.av_fetcher import AlphaVantageFetcher
 
 
 # Mock validator that converts types automatically
@@ -127,7 +125,7 @@ from strategy_defaults import (
 from strategy_integration_helpers import DataFormatConverter, RiskContextMock
 
 # Import base strategy
-from strategies.base import BaseStrategy
+from algostack.strategies.base import BaseStrategy
 
 
 class AlphaVantageDataManager:
