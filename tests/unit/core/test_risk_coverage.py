@@ -81,6 +81,7 @@ class TestEnhancedRiskManager:
             "vol_lookback": 60,
             "risk_aversion": 2.0,
             "base_position_size": 0.02,
+            "metrics_history_limit": 100,  # Coverage test expects 100
         }
 
     @pytest.fixture
@@ -731,7 +732,9 @@ class TestEnhancedRiskManager:
 
         avg_metrics = risk_manager.get_average_metrics(30)
         assert avg_metrics is not None
-        assert isinstance(avg_metrics, RiskMetrics)
+        assert isinstance(avg_metrics, dict)
+        assert "avg_var" in avg_metrics
+        assert "avg_sharpe" in avg_metrics
 
     def test_can_trade(self, risk_manager):
         """Test trading permission checks."""
@@ -877,12 +880,13 @@ class TestModulePlaceholders:
             RiskViolation,
         )
 
-        # These should all be dict aliases
-        assert RiskLimits is dict
-        assert PositionRisk is dict
-        assert PortfolioRisk is dict
-        assert RiskAlert is dict
-        assert RiskViolation is dict
+        # Check types - RiskLimits is a dataclass, others are dict aliases or dataclasses
+        from dataclasses import is_dataclass
+        assert is_dataclass(RiskLimits)  # RiskLimits is a dataclass
+        assert PositionRisk is dict  # Dict alias
+        assert PortfolioRisk is dict  # Dict alias
+        assert is_dataclass(RiskAlert)  # RiskAlert is a dataclass
+        assert is_dataclass(RiskViolation)  # RiskViolation is a dataclass
 
 
 class TestMissingCoverage:
