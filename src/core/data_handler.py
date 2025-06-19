@@ -34,6 +34,10 @@ class DataHandler:
 
         # Initialize adapters immediately (not async)
         self._init_adapters()
+        
+        # Cache configuration
+        self._cache_enabled = False
+        self._memory_cache = None
 
     def _init_adapters(self) -> None:
         """Initialize data adapters (synchronous)."""
@@ -222,3 +226,108 @@ class DataHandler:
         for cache_file in self.cache_dir.glob("*.pkl"):
             total_size += cache_file.stat().st_size
         return total_size
+    
+    def add_fetcher(self, fetcher: Any, name: str = None) -> None:
+        """Add a new data fetcher - PILLAR 3: OPERATIONAL STABILITY."""
+        if name is None:
+            name = fetcher.__class__.__name__
+        self.adapters[name] = fetcher
+        logger.info(f"Added data fetcher: {name}")
+    
+    async def fetch_with_failover(
+        self,
+        symbols: list[str],
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        interval: str = "1d"
+    ) -> dict[str, pd.DataFrame]:
+        """Fetch data with automatic failover - PILLAR 3: OPERATIONAL STABILITY."""
+        from data.sources.composite_fetcher import CompositeFetcher
+        
+        # Create composite fetcher with all available adapters
+        fetchers = list(self.adapters.values())
+        if not fetchers:
+            raise ValueError("No data fetchers available")
+        
+        composite = CompositeFetcher(fetchers)
+        return await composite.fetch(symbols, start_date, end_date, interval)
+    
+    def enable_cache(self, cache_type: str = "memory", ttl: int = 300) -> None:
+        """Enable caching for data fetches - PILLAR 2: PROFIT GENERATION."""
+        from data.cache import InMemoryCache
+        
+        self._cache_enabled = True
+        if cache_type == "memory":
+            self._memory_cache = InMemoryCache(max_size=1000)
+        logger.info(f"Enabled {cache_type} cache with TTL={ttl}s")
+    
+    async def fetch_with_cache(
+        self,
+        symbols: list[str],
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        interval: str = "1d"
+    ) -> dict[str, pd.DataFrame]:
+        """Fetch data with caching - PILLAR 2: PROFIT GENERATION."""
+        if not self._cache_enabled or not self._memory_cache:
+            return await self.fetch_with_failover(symbols, start_date, end_date, interval)
+        
+        from data.cache.data_cache import CachedDataFetcher
+        from data.sources.composite_fetcher import CompositeFetcher
+        
+        # Create composite fetcher
+        fetchers = list(self.adapters.values())
+        composite = CompositeFetcher(fetchers)
+        
+        # Wrap with cache
+        cached_fetcher = CachedDataFetcher(composite, self._memory_cache)
+        return await cached_fetcher.fetch(symbols, start_date, end_date, interval)
+    
+    def validate_data(self, data: pd.DataFrame, symbol: str = None) -> bool:
+        """
+        Validate data quality - PILLAR 1: CAPITAL PRESERVATION.
+        
+        Returns True if data is valid, False otherwise.
+        Compatible with both old test API and new implementation.
+        """
+        if symbol is None:
+            # Legacy API compatibility - extract symbol from data if possible
+            symbol = data.attrs.get('symbol', 'UNKNOWN')
+        
+        # Basic validation
+        if data.empty:
+            logger.warning(f"Empty data for {symbol}")
+            return False
+        
+        # Check for required columns
+        required_cols = ["open", "high", "low", "close", "volume"]
+        missing_cols = [col for col in required_cols if col not in data.columns]
+        if missing_cols:
+            logger.error(f"Missing columns for {symbol}: {missing_cols}")
+            return False
+        
+        # Check for invalid values
+        price_cols = ["open", "high", "low", "close"]
+        
+        # Check for NaN values
+        if data[required_cols].isna().any().any():
+            logger.error(f"NaN values found in data for {symbol}")
+            return False
+        
+        # Check for negative prices
+        for col in price_cols:
+            if (data[col] <= 0).any():
+                logger.error(f"Invalid negative/zero prices in {col} for {symbol}")
+                return False
+        
+        # Check high >= low
+        if (data["high"] < data["low"]).any():
+            logger.error(f"Invalid high < low for {symbol}")
+            return False
+        
+        # Check volume
+        if (data["volume"] < 0).any():
+            logger.error(f"Negative volumes for {symbol}")
+            return False
+        
+        return True

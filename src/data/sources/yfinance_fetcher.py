@@ -1,97 +1,53 @@
-"""Yahoo Finance data fetcher adapter."""
+"""Yahoo Finance data fetcher - PILLAR 3: OPERATIONAL STABILITY."""
 
 import logging
 from datetime import datetime
+from typing import Dict, List, Optional
 
 import pandas as pd
 import yfinance as yf
 
+from .base import DataFetcher
+
 logger = logging.getLogger(__name__)
 
 
-class YFinanceFetcher:
+class YFinanceFetcher(DataFetcher):
     """Fetches market data from Yahoo Finance."""
 
     def __init__(self):
         self.name = "yfinance"
 
-    def fetch_ohlcv(
-        self, symbol: str, start: datetime, end: datetime, interval: str = "1d"
-    ) -> pd.DataFrame:
-        """Fetch OHLCV data from Yahoo Finance."""
-        try:
-            # Convert interval format
-            yf_interval = self._convert_interval(interval)
-
-            # Fetch data
-            ticker = yf.Ticker(symbol)
-            df = ticker.history(
-                start=start,
-                end=end,
-                interval=yf_interval,
-                auto_adjust=True,  # Adjust for splits/dividends
-            )
-
-            # Standardize column names
-            df.columns = df.columns.str.lower()
-
-            # Add symbol as attribute
-            df.attrs["symbol"] = symbol
-
-            logger.info(f"Fetched {len(df)} bars for {symbol} from Yahoo Finance")
-            return df
-
-        except Exception as e:
-            logger.error(f"Error fetching {symbol} from Yahoo Finance: {e}")
-            return pd.DataFrame()
-
-    def fetch_info(self, symbol: str) -> dict:
-        """Fetch stock info/metadata."""
-        try:
-            ticker = yf.Ticker(symbol)
-            return ticker.info
-        except Exception as e:
-            logger.error(f"Error fetching info for {symbol}: {e}")
-            return {}
-
-    def fetch_multiple(
-        self, symbols: list, start: datetime, end: datetime, interval: str = "1d"
-    ) -> dict:
-        """Fetch data for multiple symbols."""
-        data = {}
-
-        for symbol in symbols:
-            df = self.fetch_ohlcv(symbol, start, end, interval)
-            if not df.empty:
-                data[symbol] = df
-
-        return data
-
     async def fetch(
         self,
-        symbols: list[str],
-        start_date: datetime | None = None,
-        end_date: datetime | None = None,
+        symbols: List[str],
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
         interval: str = "1d"
-    ) -> dict[str, pd.DataFrame]:
+    ) -> Dict[str, pd.DataFrame]:
         """
-        Fetch historical data for multiple symbols - PILLAR 3: OPERATIONAL STABILITY.
+        Fetch historical data for multiple symbols.
         
-        This method is required by tests and provides async compatibility.
+        This method provides async compatibility while using sync yfinance.
         """
         if start_date is None:
             start_date = datetime.now() - pd.Timedelta(days=30)
         if end_date is None:
             end_date = datetime.now()
             
-        # Convert async to sync call
-        return self.fetch_multiple(symbols, start_date, end_date, interval)
+        data = {}
+        for symbol in symbols:
+            df = self._fetch_single(symbol, start_date, end_date, interval)
+            if not df.empty:
+                data[symbol] = df
+                
+        return data
     
     async def fetch_realtime(
         self,
-        symbols: list[str]
-    ) -> dict[str, dict]:
-        """Fetch real-time quotes - PILLAR 2: PROFIT GENERATION."""
+        symbols: List[str]
+    ) -> Dict[str, Dict]:
+        """Fetch real-time quotes."""
         quotes = {}
         
         for symbol in symbols:
@@ -191,6 +147,36 @@ class YFinanceFetcher:
                 logger.warning(f"Found stale data (no price changes) for {symbol}")
         
         return data
+
+    def _fetch_single(
+        self, symbol: str, start: datetime, end: datetime, interval: str
+    ) -> pd.DataFrame:
+        """Fetch data for a single symbol."""
+        try:
+            # Convert interval format
+            yf_interval = self._convert_interval(interval)
+
+            # Fetch data
+            ticker = yf.Ticker(symbol)
+            df = ticker.history(
+                start=start,
+                end=end,
+                interval=yf_interval,
+                auto_adjust=True,  # Adjust for splits/dividends
+            )
+
+            # Standardize column names
+            df.columns = df.columns.str.lower()
+
+            # Add symbol as attribute
+            df.attrs["symbol"] = symbol
+
+            logger.info(f"Fetched {len(df)} bars for {symbol} from Yahoo Finance")
+            return df
+
+        except Exception as e:
+            logger.error(f"Error fetching {symbol} from Yahoo Finance: {e}")
+            return pd.DataFrame()
 
     def _convert_interval(self, interval: str) -> str:
         """Convert interval to yfinance format."""
