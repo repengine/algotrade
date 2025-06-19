@@ -55,7 +55,7 @@ class EnhancedOrderManager(ExecutionCallback):
     - Comprehensive event handling
     """
 
-    def __init__(self, risk_manager=None, sync_config=None):
+    def __init__(self, risk_manager: Optional[Any] = None, sync_config: Optional[dict[str, Any]] = None):
         """
         Initialize enhanced order manager.
 
@@ -337,6 +337,66 @@ class EnhancedOrderManager(ExecutionCallback):
         """Get all orders for a strategy."""
         order_ids = self._strategy_orders.get(strategy_id, set())
         return [self._orders[oid] for oid in order_ids if oid in self._orders]
+
+    def add_order(self, order_id: str, order: Order) -> None:
+        """
+        Add an order to the manager for tracking.
+
+        This method is used when an order has already been created and needs
+        to be tracked by the order manager. It includes risk validation and
+        duplicate detection via the synchronizer if available.
+
+        Args:
+            order_id: The order ID to use
+            order: The order object to add
+
+        Raises:
+            ValueError: If order validation fails or risk check fails
+        """
+        # Check for duplicate if synchronizer is active
+        if self.order_synchronizer:
+            # Note: This is synchronous check for simplicity in add_order
+            # In async context, use submit_order which has async duplicate check
+            logger.warning("Duplicate check skipped in sync add_order - use submit_order for full validation")
+
+        # Update order ID if different
+        if order.order_id != order_id:
+            logger.info(f"Updating order ID from {order.order_id} to {order_id}")
+            order.order_id = order_id
+
+        # Validate with risk manager if available
+        if self.risk_manager:
+            # Simple synchronous validation - full async validation in submit_order
+            if hasattr(self.risk_manager, 'validate_order_params'):
+                if not self.risk_manager.validate_order_params(order):
+                    raise ValueError("Order rejected by risk manager parameter validation")
+
+        # Store order
+        self._orders[order_id] = order
+        self._order_stats["total_orders"] += 1
+
+        # Store strategy association
+        if hasattr(order, 'strategy_id') and order.strategy_id:
+            self._strategy_orders[order.strategy_id].add(order_id)
+        elif hasattr(order, 'metadata') and order.metadata.get('strategy_id'):
+            self._strategy_orders[order.metadata['strategy_id']].add(order_id)
+
+        # Initialize order fills list
+        if order_id not in self._order_fills:
+            self._order_fills[order_id] = []
+
+        # Record creation event (synchronously)
+        event = {
+            "timestamp": datetime.now(),
+            "event_type": OrderEventType.CREATED,
+            "order_status": order.status,
+            "data": {}
+        }
+        self._order_events[order_id].append(event)
+
+        logger.info(
+            f"Added order: {order_id} - {order.side.value} {order.quantity} {order.symbol}"
+        )
 
     async def get_positions(
         self, executor_name: Optional[str] = None

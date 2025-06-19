@@ -10,8 +10,8 @@ from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-from core.executor import Order, OrderSide, OrderStatus, OrderType
-from core.order_state_sync import (
+from src.core.executor import Order, OrderSide, OrderStatus, OrderType
+from src.core.order_state_sync import (
     OrderStateSynchronizer,
     SyncStatus,
 )

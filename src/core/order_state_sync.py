@@ -15,8 +15,8 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
-from core.executor import Fill, Order, OrderStatus
-from utils.logging import setup_logger
+from src.core.executor import Fill, Order, OrderStatus
+from src.utils.logging import setup_logger
 
 logger = setup_logger(__name__)
 
