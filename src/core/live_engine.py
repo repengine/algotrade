@@ -888,6 +888,476 @@ class LiveTradingEngine:
         except Exception as e:
             logger.error(f"Error updating positions: {e}")
 
+    async def process_market_data(self, market_data: dict[str, Any]) -> None:
+        """
+        Process and validate incoming market data before distribution.
+        
+        Critical for:
+        - Data integrity validation
+        - Preventing bad data from triggering trades
+        - Maintaining system state consistency
+        
+        Args:
+            market_data: Dictionary of symbol -> data (dict or DataFrame)
+        """
+        try:
+            validated_data = {}
+            max_price_change_pct = self.config.get("max_price_change_pct", 0.20)  # 20% circuit breaker
+            max_data_age_seconds = self.config.get("max_data_age_seconds", 60)  # 1 minute
+            
+            for symbol, data in market_data.items():
+                try:
+                    # Extract price and timestamp based on data format
+                    if isinstance(data, dict):
+                        price = data.get('close', data.get('price'))
+                        timestamp = data.get('timestamp', datetime.now())
+                        volume = data.get('volume', 0)
+                    elif isinstance(data, pd.DataFrame) and not data.empty:
+                        price = data['close'].iloc[-1]
+                        timestamp = data.index[-1] if isinstance(data.index, pd.DatetimeIndex) else datetime.now()
+                        volume = data['volume'].iloc[-1] if 'volume' in data else 0
+                    else:
+                        logger.warning(f"Invalid data format for {symbol}")
+                        continue
+                    
+                    # Validation checks
+                    
+                    # 1. Check for stale data
+                    if isinstance(timestamp, str):
+                        timestamp = pd.to_datetime(timestamp)
+                    
+                    data_age = (datetime.now() - timestamp).total_seconds()
+                    if data_age > max_data_age_seconds:
+                        logger.warning(f"Stale data for {symbol}: {data_age:.1f}s old")
+                        self.stats["stale_data_rejected"] = self.stats.get("stale_data_rejected", 0) + 1
+                        continue
+                    
+                    # 2. Price sanity check
+                    if price <= 0:
+                        logger.error(f"Invalid price for {symbol}: {price}")
+                        self.stats["invalid_price_rejected"] = self.stats.get("invalid_price_rejected", 0) + 1
+                        continue
+                    
+                    # 3. Circuit breaker check
+                    if symbol in self._last_prices:
+                        price_change_pct = abs(price - self._last_prices[symbol]) / self._last_prices[symbol]
+                        if price_change_pct > max_price_change_pct:
+                            logger.warning(f"Circuit breaker triggered for {symbol}: {price_change_pct:.1%} change")
+                            self.stats["circuit_breaker_triggered"] = self.stats.get("circuit_breaker_triggered", 0) + 1
+                            # Still update but flag for risk manager
+                            if isinstance(data, dict):
+                                data['circuit_breaker'] = True
+                            validated_data[symbol] = data
+                            # Update prices even with circuit breaker
+                            self._last_prices[symbol] = price
+                            self.current_prices[symbol] = price
+                            continue
+                    
+                    # 4. Volume validation (if available)
+                    if volume < 0:
+                        logger.warning(f"Invalid volume for {symbol}: {volume}")
+                        volume = 0
+                    
+                    # Data passed validation
+                    validated_data[symbol] = data
+                    
+                    # Update internal state
+                    self._last_prices[symbol] = price
+                    self.current_prices[symbol] = price
+                    
+                    # Store market data with memory limits
+                    max_rows = self.config.get("max_market_data_rows", 1000)
+                    if isinstance(data, pd.DataFrame):
+                        if symbol not in self.market_data:
+                            self.market_data[symbol] = data.tail(max_rows).copy()
+                        else:
+                            # Append and limit size
+                            self.market_data[symbol] = pd.concat([self.market_data[symbol], data]).tail(max_rows)
+                    
+                except Exception as e:
+                    logger.error(f"Error validating data for {symbol}: {e}")
+                    self.stats["data_validation_errors"] = self.stats.get("data_validation_errors", 0) + 1
+            
+            # Distribute validated data
+            if validated_data:
+                # Update data handler
+                if hasattr(self.data_handler, 'update_data'):
+                    await self.data_handler.update_data(validated_data)
+                
+                # Notify strategies via event system
+                for strategy_id, strategy in self.strategies.items():
+                    if hasattr(strategy, 'on_market_data'):
+                        await strategy.on_market_data(validated_data)
+                
+                # Update risk manager with latest prices
+                if hasattr(self.risk_manager, 'update_prices'):
+                    self.risk_manager.update_prices(self.current_prices)
+                
+                # Track successful updates
+                self.stats["data_updates"] = self.stats.get("data_updates", 0) + 1
+                
+            # Log data quality metrics periodically
+            if self.stats.get("data_updates", 0) % 100 == 0:
+                total_rejected = (
+                    self.stats.get("stale_data_rejected", 0) +
+                    self.stats.get("invalid_price_rejected", 0) +
+                    self.stats.get("data_validation_errors", 0)
+                )
+                total_processed = self.stats.get("data_updates", 0) + total_rejected
+                quality_pct = (self.stats.get("data_updates", 0) / total_processed * 100) if total_processed > 0 else 0
+                logger.info(f"Data quality: {quality_pct:.1f}% ({total_rejected} rejected out of {total_processed})")
+                
+        except Exception as e:
+            logger.error(f"Critical error in process_market_data: {e}")
+            self.stats["errors"] = self.stats.get("errors", 0) + 1
+
+    async def collect_signals(self) -> list[Signal]:
+        """
+        Collect signals from all active strategies with deduplication.
+        
+        Critical for:
+        - Preventing duplicate orders
+        - Coordinating multi-strategy positions
+        - Signal conflict resolution
+        
+        Returns:
+            List of deduplicated and validated signals
+        """
+        try:
+            all_signals = []
+            signal_timeout = self.config.get("signal_timeout_ms", 100) / 1000  # Convert to seconds
+            
+            # Collect signals from all strategies concurrently
+            tasks = []
+            for strategy_id, strategy in self.strategies.items():
+                if not getattr(strategy, 'enabled', True):
+                    continue
+                
+                # Create task for each strategy
+                task = asyncio.create_task(self._collect_strategy_signals(strategy_id, strategy, signal_timeout))
+                tasks.append((strategy_id, task))
+            
+            # Wait for all tasks to complete
+            if tasks:
+                await asyncio.gather(*[task for _, task in tasks], return_exceptions=True)
+            
+            # Gather results
+            for strategy_id, task in tasks:
+                try:
+                    result = task.result()
+                    if isinstance(result, Exception):
+                        logger.error(f"Error collecting signals from {strategy_id}: {result}")
+                        self.stats["strategy_errors"] = self.stats.get("strategy_errors", {})
+                        self.stats["strategy_errors"][strategy_id] = self.stats["strategy_errors"].get(strategy_id, 0) + 1
+                    elif result:
+                        all_signals.extend(result)
+                        self.stats["signals_per_strategy"] = self.stats.get("signals_per_strategy", {})
+                        self.stats["signals_per_strategy"][strategy_id] = self.stats["signals_per_strategy"].get(strategy_id, 0) + len(result)
+                except Exception as e:
+                    logger.error(f"Error processing signals from {strategy_id}: {e}")
+                    self.stats["strategy_errors"] = self.stats.get("strategy_errors", {})
+                    self.stats["strategy_errors"][strategy_id] = self.stats["strategy_errors"].get(strategy_id, 0) + 1
+            
+            # Deduplicate signals
+            deduplicated_signals = self._deduplicate_signals(all_signals)
+            
+            # Validate signals
+            validated_signals = []
+            for signal in deduplicated_signals:
+                if self._validate_signal(signal):
+                    validated_signals.append(signal)
+                else:
+                    self.stats["invalid_signals"] = self.stats.get("invalid_signals", 0) + 1
+            
+            self.stats["total_signals"] = self.stats.get("total_signals", 0) + len(validated_signals)
+            
+            return validated_signals
+            
+        except Exception as e:
+            logger.error(f"Critical error in collect_signals: {e}")
+            self.stats["errors"] = self.stats.get("errors", 0) + 1
+            return []
+    
+    async def _collect_strategy_signals(self, strategy_id: str, strategy: BaseStrategy, timeout: float) -> list[Signal]:
+        """Collect signals from a single strategy with timeout."""
+        try:
+            # Prepare market data for strategy
+            strategy_data = {}
+            for symbol in getattr(strategy, 'symbols', []):
+                if symbol in self.market_data:
+                    strategy_data[symbol] = self.market_data[symbol]
+            
+            if not strategy_data:
+                return []
+            
+            # Call strategy with timeout
+            if hasattr(strategy, 'generate_signals'):
+                signals = await asyncio.wait_for(
+                    asyncio.create_task(strategy.generate_signals(strategy_data)),
+                    timeout=timeout
+                )
+                
+                # Convert to Signal objects if needed
+                signal_objects = []
+                for signal in signals:
+                    if isinstance(signal, Signal):
+                        signal_objects.append(signal)
+                    elif isinstance(signal, dict):
+                        # Convert dict to Signal
+                        direction_val = signal.get('direction', 0)
+                        if isinstance(direction_val, (int, float)):
+                            # Convert numeric to string direction
+                            if direction_val > 0:
+                                direction_str = "LONG"
+                            elif direction_val < 0:
+                                direction_str = "SHORT"
+                            else:
+                                direction_str = "FLAT"
+                        else:
+                            direction_str = str(direction_val)
+                        
+                        signal_obj = Signal(
+                            symbol=signal.get('symbol'),
+                            direction=direction_str,
+                            strength=signal.get('strength', 0),
+                            timestamp=signal.get('timestamp', datetime.now()),
+                            strategy_id=strategy_id,
+                            price=self.current_prices.get(signal.get('symbol'), 100.0),
+                            metadata=signal.get('metadata', {})
+                        )
+                        signal_objects.append(signal_obj)
+                
+                return signal_objects
+                
+        except asyncio.TimeoutError:
+            logger.warning(f"Strategy {strategy_id} timed out after {timeout}s")
+            self.stats["strategy_timeouts"] = self.stats.get("strategy_timeouts", {})
+            self.stats["strategy_timeouts"][strategy_id] = self.stats["strategy_timeouts"].get(strategy_id, 0) + 1
+        except Exception as e:
+            logger.error(f"Error in strategy {strategy_id}: {e}")
+            
+        return []
+    
+    def _deduplicate_signals(self, signals: list[Signal]) -> list[Signal]:
+        """Deduplicate and aggregate signals by symbol and direction."""
+        signal_map = {}  # (symbol, direction) -> list of signals
+        
+        for signal in signals:
+            key = (signal.symbol, signal.direction)
+            if key not in signal_map:
+                signal_map[key] = []
+            signal_map[key].append(signal)
+        
+        # Aggregate signals
+        deduplicated = []
+        for (symbol, direction), signal_list in signal_map.items():
+            if len(signal_list) == 1:
+                deduplicated.append(signal_list[0])
+            else:
+                # Multiple signals for same symbol/direction - aggregate
+                total_strength = sum(abs(s.strength) for s in signal_list)
+                avg_strength = total_strength / len(signal_list)
+                
+                # Adjust strength sign based on direction
+                if direction == "SHORT":
+                    avg_strength = -abs(avg_strength)
+                elif direction == "LONG":
+                    avg_strength = abs(avg_strength)
+                else:  # FLAT
+                    avg_strength = 0
+                
+                # Check for conflicts (should not happen with same direction)
+                strengths = [s.strength for s in signal_list]
+                if max(strengths) - min(strengths) > 0.5:  # Large disagreement
+                    logger.warning(f"Large signal disagreement for {symbol}: {strengths}")
+                
+                # Use average price
+                avg_price = sum(s.price for s in signal_list) / len(signal_list)
+                
+                # Create aggregated signal
+                agg_signal = Signal(
+                    symbol=symbol,
+                    direction=direction,
+                    strength=avg_strength,
+                    timestamp=datetime.now(),
+                    strategy_id=f"aggregated_{len(signal_list)}",
+                    price=avg_price,
+                    metadata={
+                        'aggregated': True,
+                        'source_count': len(signal_list),
+                        'strategies': [s.strategy_id for s in signal_list]
+                    }
+                )
+                deduplicated.append(agg_signal)
+                
+                self.stats["aggregated_signals"] = self.stats.get("aggregated_signals", 0) + 1
+        
+        return deduplicated
+    
+    def _validate_signal(self, signal: Signal) -> bool:
+        """Validate signal parameters."""
+        # Check required fields
+        if not signal.symbol or signal.symbol not in self._active_symbols:
+            return False
+        
+        # Check direction is valid
+        if signal.direction not in ["LONG", "SHORT", "FLAT"]:
+            return False
+        
+        # Check signal strength is within bounds
+        if not isinstance(signal.strength, (int, float)) or abs(signal.strength) > 1.0:
+            return False
+        
+        # Check strength consistency with direction
+        if signal.direction == "LONG" and signal.strength < 0:
+            return False
+        if signal.direction == "SHORT" and signal.strength > 0:
+            return False
+        if signal.direction == "FLAT" and signal.strength != 0:
+            return False
+        
+        # Check timestamp freshness (signals older than 5 seconds are stale)
+        if isinstance(signal.timestamp, datetime):
+            signal_age = (datetime.now() - signal.timestamp).total_seconds()
+            if signal_age > 5:
+                logger.warning(f"Stale signal for {signal.symbol}: {signal_age:.1f}s old")
+                return False
+        
+        return True
+
+    async def _update_portfolio(self) -> None:
+        """
+        Update portfolio state with atomic operations.
+        
+        Critical for:
+        - Accurate position tracking
+        - P&L calculation
+        - Risk metric updates
+        - State consistency
+        """
+        try:
+            # Use asyncio lock for atomic updates
+            if not hasattr(self, '_portfolio_lock'):
+                self._portfolio_lock = asyncio.Lock()
+            
+            async with self._portfolio_lock:
+                # Get current positions from broker
+                broker_positions = await self.order_manager.get_positions()
+                
+                # Get internal positions
+                internal_positions = getattr(self.portfolio_engine, 'positions', {})
+                
+                # Reconcile positions
+                reconciliation_needed = False
+                discrepancies = []
+                
+                for symbol, broker_pos in broker_positions.items():
+                    if symbol not in internal_positions:
+                        discrepancies.append({
+                            'symbol': symbol,
+                            'type': 'missing_internal',
+                            'broker_qty': broker_pos.quantity,
+                            'internal_qty': 0
+                        })
+                        reconciliation_needed = True
+                    else:
+                        internal_pos = internal_positions[symbol]
+                        qty_diff = abs(broker_pos.quantity - internal_pos.quantity)
+                        if qty_diff > 0.01:  # Small tolerance for rounding
+                            discrepancies.append({
+                                'symbol': symbol,
+                                'type': 'quantity_mismatch',
+                                'broker_qty': broker_pos.quantity,
+                                'internal_qty': internal_pos.quantity
+                            })
+                            reconciliation_needed = True
+                
+                # Check for positions in internal but not in broker
+                for symbol, internal_pos in internal_positions.items():
+                    if symbol not in broker_positions and internal_pos.quantity != 0:
+                        discrepancies.append({
+                            'symbol': symbol,
+                            'type': 'missing_broker',
+                            'broker_qty': 0,
+                            'internal_qty': internal_pos.quantity
+                        })
+                        reconciliation_needed = True
+                
+                # Handle discrepancies
+                if reconciliation_needed:
+                    logger.warning(f"Position discrepancies found: {len(discrepancies)}")
+                    for disc in discrepancies[:5]:  # Log first 5
+                        logger.warning(f"  {disc}")
+                    
+                    # Reconcile with broker as source of truth
+                    if hasattr(self.portfolio_engine, 'reconcile_positions'):
+                        # Check if it's async
+                        if asyncio.iscoroutinefunction(self.portfolio_engine.reconcile_positions):
+                            await self.portfolio_engine.reconcile_positions(broker_positions)
+                        else:
+                            self.portfolio_engine.reconcile_positions(broker_positions)
+                    else:
+                        # Manual reconciliation
+                        for symbol, broker_pos in broker_positions.items():
+                            if hasattr(self.portfolio_engine, 'update_position'):
+                                self.portfolio_engine.update_position(
+                                    symbol=symbol,
+                                    quantity=broker_pos.quantity,
+                                    avg_price=broker_pos.average_cost,
+                                    current_price=self.current_prices.get(symbol, broker_pos.current_price)
+                                )
+                
+                # Update mark-to-market values
+                positions_updated = 0
+                for symbol, position in internal_positions.items():
+                    if symbol in self.current_prices:
+                        position.current_price = self.current_prices[symbol]
+                        positions_updated += 1
+                
+                # Calculate portfolio metrics
+                if hasattr(self.portfolio_engine, 'calculate_metrics'):
+                    self.portfolio_engine.calculate_metrics()
+                
+                # Update risk metrics
+                if hasattr(self.risk_manager, 'update_portfolio_metrics'):
+                    portfolio_value = getattr(self.portfolio_engine, 'total_value', self.portfolio_engine.initial_capital)
+                    self.risk_manager.update_portfolio_metrics({
+                        'total_value': portfolio_value,
+                        'positions': internal_positions,
+                        'cash': getattr(self.portfolio_engine, 'cash', 0)
+                    })
+                
+                # Broadcast portfolio update event
+                update_event = {
+                    'timestamp': datetime.now(),
+                    'positions_count': len(internal_positions),
+                    'positions_updated': positions_updated,
+                    'reconciliation_needed': reconciliation_needed,
+                    'portfolio_value': getattr(self.portfolio_engine, 'total_value', self.portfolio_engine.initial_capital)
+                }
+                
+                # Notify strategies of portfolio update
+                for strategy_id, strategy in self.strategies.items():
+                    if hasattr(strategy, 'on_portfolio_update'):
+                        await strategy.on_portfolio_update(update_event)
+                
+                # Log portfolio state periodically
+                if self.stats.get("portfolio_updates", 0) % 60 == 0:  # Every 60 updates
+                    portfolio_val = update_event['portfolio_value']
+                    if isinstance(portfolio_val, (int, float)):
+                        logger.info(f"Portfolio state: {len(internal_positions)} positions, "
+                                  f"value: ${portfolio_val:,.2f}")
+                    else:
+                        logger.info(f"Portfolio state: {len(internal_positions)} positions, "
+                                  f"value: {portfolio_val}")
+                
+                self.stats["portfolio_updates"] = self.stats.get("portfolio_updates", 0) + 1
+                
+        except Exception as e:
+            logger.error(f"Critical error in _update_portfolio: {e}")
+            self.stats["errors"] = self.stats.get("errors", 0) + 1
+            # Don't re-raise to prevent cascading failures
+
     async def _check_stops(self) -> None:
         """Check and trigger stop orders."""
         triggered_stops = []

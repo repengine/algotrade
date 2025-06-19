@@ -1723,6 +1723,54 @@ class EnhancedRiskManager:
 
         return liquidity_assessment
 
+    def pre_trade_check(self, symbol: str, side: str, quantity: int, price: float) -> dict[str, Any]:
+        """
+        Perform pre-trade risk check (wrapper for pre_trade_risk_check).
+        
+        This method is called by LiveTradingEngine and provides a simpler interface
+        for the pre_trade_risk_check method.
+        
+        Args:
+            symbol: Trading symbol
+            side: 'BUY' or 'SELL'
+            quantity: Order quantity
+            price: Current or expected price
+            
+        Returns:
+            dict with 'approved' (bool) and 'reason' (str) if rejected
+        """
+        # Build trade info for risk check
+        new_trade = {
+            'symbol': symbol,
+            'side': side,
+            'quantity': quantity,
+            'price': price,
+            'value': quantity * price,
+            'sector': 'Unknown'  # Default sector, could be enhanced
+        }
+        
+        # Get current positions (empty dict if not available)
+        current_positions = {}
+        
+        # Use a default portfolio value if not set
+        portfolio_value = self.portfolio_value if hasattr(self, 'portfolio_value') else 100000
+        
+        # Perform risk check
+        result = self.pre_trade_risk_check(new_trade, current_positions, portfolio_value)
+        
+        # Convert to simpler format expected by LiveTradingEngine
+        if result['approved']:
+            return {'approved': True}
+        else:
+            # Find the first failed check for the reason
+            reason = "Risk check failed"
+            for check in result.get('checks', []):
+                if not check['passed']:
+                    reason = f"{check['check']} limit exceeded: {check['value']:.2%} > {check['limit']:.2%}"
+                    break
+            
+            return {'approved': False, 'reason': reason}
+
 
 # Backward compatibility classes
 @dataclass

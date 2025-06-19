@@ -105,6 +105,11 @@ class TestBacktestEngine:
         # Mock run results with proper metrics
         mock_strategy_result = Mock()
         mock_analyzer = Mock()
+        
+        # Add required attributes for AlgoStackStrategy
+        mock_strategy_result.signals_history = []
+        mock_strategy_result.trades_history = []
+        mock_strategy_result.equity_history = []
 
         # Mock trade analyzer
         mock_trade_analyzer = Mock()
@@ -404,6 +409,11 @@ class TestIntegrationScenarios:
         # Mock strategy results with analyzers
         mock_strategy_result = Mock()
         mock_strategy_result.analyzers = Mock()
+        
+        # Add required attributes for AlgoStackStrategy
+        mock_strategy_result.signals_history = []
+        mock_strategy_result.trades_history = []
+        mock_strategy_result.equity_history = []
         mock_strategy_result.analyzers.sharpe.get_analysis.return_value = {'sharperatio': 1.5}
         mock_strategy_result.analyzers.drawdown.get_analysis.return_value = {'max': {'drawdown': 5.0}}
         mock_strategy_result.analyzers.returns.get_analysis.return_value = {'rtot': 0.1}

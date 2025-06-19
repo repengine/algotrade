@@ -364,10 +364,6 @@ class TestIBKRAdapterIntegration:
         await adapter.disconnect()
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(
-        True,  # Skip integration tests by default
-        reason="Integration tests require --integration flag",
-    )
     async def test_live_connection(self, live_adapter):
         """Test actual connection to IBKR gateway"""
         connected = await live_adapter.connect()
@@ -384,10 +380,6 @@ class TestIBKRAdapterIntegration:
             ]
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(
-        True,  # Skip integration tests by default
-        reason="Integration tests require --integration flag",
-    )
     async def test_live_contract_search(self, live_adapter):
         """Test actual contract search"""
         connected = await live_adapter.connect()

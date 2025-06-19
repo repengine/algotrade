@@ -31,6 +31,7 @@ class AlgoStackStrategy(bt.Strategy):
         self.risk_context = self.params.risk_context
         self.signals_history = []
         self.trades_history = []
+        self.equity_history = []  # Track equity over time
 
         # Initialize the AlgoStack strategy
         if self.algostack_strategy:
@@ -38,6 +39,14 @@ class AlgoStackStrategy(bt.Strategy):
 
     def next(self):
         """Called on each bar."""
+        # Track equity at each bar
+        current_datetime = self.data.datetime.datetime(0)
+        current_equity = self.broker.getvalue()
+        self.equity_history.append({
+            "datetime": current_datetime,
+            "equity": current_equity
+        })
+        
         # Prepare data for AlgoStack strategy
         lookback = self.algostack_strategy.config.get("lookback_period", 252)
 
@@ -237,7 +246,8 @@ class BacktestEngine:
                     'annual_return': 0.0
                 },
                 'signals': [],
-                'trades': []
+                'trades': [],
+                'equity_curve': pd.Series([self.initial_capital], index=[datetime.now()])
             }
 
         strategy_results = results[0]
@@ -252,11 +262,29 @@ class BacktestEngine:
                 strategy_metrics = strategy.backtest_metrics(trades_df)
                 metrics.update(strategy_metrics)
 
+        # Create equity curve DataFrame
+        equity_curve = pd.DataFrame()
+        if hasattr(strategy_results, 'equity_history') and len(strategy_results.equity_history) > 0:
+            try:
+                equity_df = pd.DataFrame(strategy_results.equity_history)
+                equity_df.set_index('datetime', inplace=True)
+                equity_curve = equity_df['equity']
+            except Exception as e:
+                logger.warning(f"Failed to create equity curve from history: {e}")
+                # Fall back to simple equity curve
+                equity_curve = pd.Series([self.initial_capital, cerebro.broker.getvalue()], 
+                                       index=[datetime.now(), datetime.now()])
+        else:
+            # Create a simple equity curve with just initial and final values
+            equity_curve = pd.Series([self.initial_capital, cerebro.broker.getvalue()], 
+                                   index=[datetime.now(), datetime.now()])
+
         # Store results
         full_results = {
             "metrics": metrics,
             "signals": strategy_results.signals_history,
             "trades": strategy_results.trades_history,
+            "equity_curve": equity_curve,
         }
         self.results[strategy.name] = full_results
 

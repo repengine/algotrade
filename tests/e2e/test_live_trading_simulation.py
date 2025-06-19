@@ -14,7 +14,7 @@ import asyncio
 import random
 import time
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import numpy as np
 import pytest
@@ -36,6 +36,9 @@ from helpers.safe_logging import get_test_logger, suppress_test_output
 # Configure safe logging
 suppress_test_output()
 logger = get_test_logger(__name__)
+
+
+# Tests fixed - using proper async/await patterns
 
 
 class TestLiveTradingSimulation:
@@ -316,58 +319,72 @@ class TestLiveTradingSimulation:
 
         engine = LiveTradingEngine(config)
 
-        # Start engine
-        await engine.start()
+        # Create a task for the engine to run in the background
+        engine_task = asyncio.create_task(engine.start())
+        
+        try:
+            # Give engine time to start
+            await asyncio.sleep(0.1)
 
-        # Simulate normal operation
-        market_data = {
-            'AAPL': {
-                'timestamp': datetime.now(),
-                'last': 150.0,
-                'bid': 149.95,
-                'ask': 150.05,
-                'volume': 1000
+            # Simulate normal operation
+            market_data = {
+                'AAPL': {
+                    'timestamp': datetime.now(),
+                    'last': 150.0,
+                    'bid': 149.95,
+                    'ask': 150.05,
+                    'volume': 1000
+                }
             }
-        }
 
-        await engine.process_market_data(market_data)
-
-        # Simulate connection failure
-        executor.is_connected = False
-        datetime.now()
-
-        # Try to process more data during disconnection
-        disconnected_orders = []
-        for i in range(5):
-            market_data['AAPL']['last'] = 150.0 + i * 0.1
-
-            # Engine should queue orders during disconnection
             await engine.process_market_data(market_data)
 
-            # Check if orders are queued
-            pending = order_manager.get_active_orders()
-            if pending:
-                disconnected_orders.extend(pending)
+            # Simulate connection failure
+            executor.is_connected = False
+            datetime.now()
 
-        # Simulate reconnection after 10 seconds
-        await asyncio.sleep(0.1)  # Simulated delay
-        executor.is_connected = True
+            # Try to process more data during disconnection
+            disconnected_orders = []
+            for i in range(5):
+                market_data['AAPL']['last'] = 150.0 + i * 0.1
 
-        # Trigger reconnection
-        await engine.check_connection()
+                # Engine should queue orders during disconnection
+                await engine.process_market_data(market_data)
 
-        # Verify recovery behavior
-        assert executor.connect.called
+                # Check if orders are queued
+                pending = order_manager.get_active_orders()
+                if pending:
+                    disconnected_orders.extend(pending)
 
-        # Check order deduplication
-        all_order_ids = [order.id for order in order_manager.get_all_orders()]
-        unique_order_ids = set(all_order_ids)
-        assert len(all_order_ids) == len(unique_order_ids), "Duplicate orders detected"
+            # Simulate reconnection after 10 seconds
+            await asyncio.sleep(0.1)  # Simulated delay
+            executor.is_connected = True
 
-        # Verify queued orders are processed
-        if disconnected_orders:
-            # Should attempt to submit queued orders
-            assert executor.submit_order.call_count >= len(disconnected_orders)
+            # Trigger reconnection
+            await engine.check_connection()
+
+            # Verify recovery behavior
+            assert executor.connect.called
+
+            # Check order deduplication
+            all_order_ids = [order.id for order in order_manager.get_all_orders()]
+            unique_order_ids = set(all_order_ids)
+            assert len(all_order_ids) == len(unique_order_ids), "Duplicate orders detected"
+
+            # Verify queued orders are processed
+            if disconnected_orders:
+                # Should attempt to submit queued orders
+                assert executor.submit_order.call_count >= len(disconnected_orders)
+                
+        finally:
+            # Always stop the engine to prevent hanging
+            await engine.stop()
+            # Cancel the engine task
+            engine_task.cancel()
+            try:
+                await engine_task
+            except asyncio.CancelledError:
+                pass
 
     @pytest.mark.e2e
     @pytest.mark.asyncio

@@ -125,11 +125,44 @@ class PortfolioEngine:
         self.strategy_kelly_fractions: dict[str, float] = {}
         self.strategy_performance: dict[str, dict[str, float]] = {}  # Track per-strategy metrics
 
+    @property
+    def total_value(self) -> float:
+        """Total portfolio value (backward compatibility alias for current_equity)."""
+        return self.current_equity
+    
+    def get_portfolio_value(self) -> float:
+        """Get total portfolio value (method version for compatibility)."""
+        return self.current_equity
+
     def update_market_prices(self, prices: dict[str, float]) -> None:
         """Update current prices for all positions."""
         for symbol, position in self.positions.items():
             if symbol in prices:
                 position.current_price = prices[symbol]
+    
+    def update_positions(self, prices: dict[str, float]) -> None:
+        """Update all position prices (alias for update_market_prices)."""
+        self.update_market_prices(prices)
+    
+    def update_position(self, symbol: str, quantity: float, avg_price: float, current_price: float) -> None:
+        """Update or create a position with given parameters."""
+        if symbol in self.positions:
+            # Update existing position
+            position = self.positions[symbol]
+            position.quantity = quantity
+            position.entry_price = avg_price
+            position.current_price = current_price
+        else:
+            # Create new position
+            self.positions[symbol] = Position(
+                symbol=symbol,
+                strategy_id="UNKNOWN",  # Will be set by actual trades
+                direction="LONG" if quantity > 0 else "SHORT",
+                quantity=quantity,
+                entry_price=avg_price,
+                entry_time=datetime.now(),
+                current_price=current_price
+            )
 
     def calculate_portfolio_metrics(self) -> dict[str, float]:
         """Calculate current portfolio metrics."""
@@ -553,6 +586,44 @@ class PortfolioEngine:
             )  # Cap at 25%
 
             self.strategy_kelly_fractions[strategy] = kelly
+
+    def process_fill(self, fill_data: dict[str, Any]) -> None:
+        """Process a fill event and update positions accordingly."""
+        symbol = fill_data.get('symbol')
+        quantity = fill_data.get('quantity', 0)
+        price = fill_data.get('price', 0)
+        side = fill_data.get('side', 'BUY')
+        
+        if symbol and quantity != 0 and price > 0:
+            # For BUY orders, add to position
+            if side == 'BUY':
+                if symbol in self.positions:
+                    # Add to existing position
+                    position = self.positions[symbol]
+                    total_value = (position.quantity * position.entry_price) + (quantity * price)
+                    position.quantity += quantity
+                    position.entry_price = total_value / position.quantity if position.quantity != 0 else price
+                    position.current_price = price
+                else:
+                    # Create new position
+                    self.positions[symbol] = Position(
+                        symbol=symbol,
+                        strategy_id=fill_data.get('strategy_id', 'UNKNOWN'),
+                        direction="LONG",
+                        quantity=quantity,
+                        entry_price=price,
+                        entry_time=datetime.now(),
+                        current_price=price
+                    )
+            else:  # SELL
+                if symbol in self.positions:
+                    position = self.positions[symbol]
+                    position.quantity -= quantity
+                    position.current_price = price
+                    
+                    # Close position if quantity reaches zero
+                    if abs(position.quantity) < 0.0001:  # Small epsilon for float comparison
+                        del self.positions[symbol]
 
     def check_stops_and_targets(self, current_prices: dict[str, float]) -> list[Signal]:
         """Check stop losses and take profits, generate exit signals."""
@@ -1351,6 +1422,38 @@ class PortfolioEngine:
             attribution[symbol]['trade_count'] += 1
 
         return attribution
+    
+    def get_performance_metrics(self) -> dict[str, Any]:
+        """Get comprehensive portfolio performance metrics."""
+        # Use the existing calculate_metrics method
+        return self.calculate_metrics()
+    
+    def export_state(self) -> dict[str, Any]:
+        """Export current portfolio state for persistence."""
+        positions_data = {}
+        for symbol, position in self.positions.items():
+            positions_data[symbol] = {
+                'symbol': position.symbol,
+                'strategy_id': position.strategy_id,
+                'direction': position.direction,
+                'quantity': position.quantity,
+                'entry_price': position.entry_price,
+                'entry_time': position.entry_time.isoformat() if hasattr(position.entry_time, 'isoformat') else str(position.entry_time),
+                'current_price': position.current_price,
+                'stop_loss': position.stop_loss,
+                'take_profit': position.take_profit,
+                'metadata': position.metadata
+            }
+            
+        return {
+            'positions': positions_data,
+            'trades': self.trades[-100:],  # Last 100 trades
+            'current_equity': self.current_equity,
+            'peak_equity': self.peak_equity,
+            'strategy_allocations': self.strategy_allocations,
+            'strategy_performance': self.strategy_performance,
+            'timestamp': datetime.now().isoformat()
+        }
 
 
 # Backward compatibility classes and aliases

@@ -10,6 +10,7 @@ from datetime import datetime
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+import pytest_asyncio
 from core.engine.order_manager import (
     Order,
     OrderFill,
@@ -21,13 +22,7 @@ from core.engine.order_manager import (
 )
 
 
-def run_async(coro):
-    """Helper to run async code in sync tests."""
-    loop = asyncio.new_event_loop()
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
+# Removed run_async helper - using pytest-asyncio instead
 
 
 class TestOrderDataStructures:

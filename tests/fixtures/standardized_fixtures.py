@@ -31,12 +31,8 @@ from core.metrics import Trade
 
 # Only define async fixtures if pytest_asyncio is available
 if HAS_PYTEST_ASYNCIO:
-    @pytest.fixture
-    def event_loop():
-        """Create an event loop for async tests."""
-        loop = asyncio.get_event_loop_policy().new_event_loop()
-        yield loop
-        loop.close()
+    # Don't override event_loop - let pytest-asyncio handle it
+    # The asyncio_mode = auto in pytest.ini will create event loops as needed
 
 
     @pytest_asyncio.fixture

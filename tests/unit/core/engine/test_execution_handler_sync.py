@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+import pytest_asyncio
 from core.engine.execution_handler import (
     ExecutionAlgorithm,
     ExecutionHandler,
@@ -18,13 +19,7 @@ from core.engine.execution_handler import (
 from core.engine.order_manager import Order, OrderSide, OrderStatus, OrderType
 
 
-def run_async(coro):
-    """Helper to run async code in sync tests."""
-    loop = asyncio.new_event_loop()
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
+# Removed run_async helper - using pytest-asyncio instead
 
 
 class TestExecutionDataStructures:

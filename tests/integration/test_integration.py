@@ -47,6 +47,39 @@ class TestSystemIntegration:
         return PortfolioEngine(system_config)
 
     @pytest.fixture
+    def mock_signals(self):
+        """Create mock signals for testing."""
+        return [
+            Signal(
+                symbol="SPY",
+                direction="LONG",
+                strength=0.8,
+                confidence=0.9,
+                timestamp=datetime.now(),
+                strategy_id="test_strategy",
+                price=400.0
+            ),
+            Signal(
+                symbol="QQQ",
+                direction="SHORT",
+                strength=-0.6,
+                confidence=0.7,
+                timestamp=datetime.now(),
+                strategy_id="test_strategy",
+                price=350.0
+            ),
+            Signal(
+                symbol="SPY",
+                direction="FLAT",
+                strength=0.0,
+                confidence=0.5,
+                timestamp=datetime.now(),
+                strategy_id="test_strategy",
+                price=401.0
+            )
+        ]
+
+    @pytest.fixture
     def risk_manager(self, system_config):
         """Create risk manager."""
         return EnhancedRiskManager(system_config)

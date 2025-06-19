@@ -63,12 +63,12 @@ class TestDataPipelineIntegration:
         3. Strategy receives clean data and generates signals
         """
         # Mock the data fetcher
-        with patch.object(YFinanceFetcher, 'fetch') as mock_fetch:
+        with patch.object(YFinanceFetcher, 'fetch_ohlcv') as mock_fetch:
             mock_fetch.return_value = mock_market_data
 
             # Set up components
             fetcher = YFinanceFetcher()
-            DataHandler()
+            data_handler = DataHandler(['yfinance'])
 
             # Strategy configuration
             strategy_config = {
@@ -89,7 +89,7 @@ class TestDataPipelineIntegration:
             end_date = datetime(2024, 1, 30)
 
             # Fetch data through handler
-            data = fetcher.fetch(symbol, start_date, end_date)
+            data = fetcher.fetch_ohlcv(symbol, start_date, end_date)
 
             # Verify data structure
             assert isinstance(data, pd.DataFrame)
@@ -151,7 +151,7 @@ class TestDataPipelineIntegration:
             }, index=dates[:5]),
         ]
 
-        data_handler = DataHandler()
+        data_handler = DataHandler(['yfinance'])
 
         for bad_data in bad_data_scenarios:
             # Validation should fail
@@ -168,7 +168,7 @@ class TestDataPipelineIntegration:
         """
         symbols = ['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'META']
 
-        with patch.object(YFinanceFetcher, 'fetch') as mock_fetch:
+        with patch.object(YFinanceFetcher, 'fetch_ohlcv') as mock_fetch:
             # Return different data for each symbol
             def side_effect(symbol, start, end):
                 base_prices = {
@@ -207,7 +207,7 @@ class TestDataPipelineIntegration:
             # Fetch data for all symbols
             all_data = {}
             for symbol in symbols:
-                data = fetcher.fetch(symbol, start, end)
+                data = fetcher.fetch_ohlcv(symbol, start, end)
                 all_data[symbol] = data
 
             # Verify all symbols processed
@@ -335,7 +335,7 @@ class TestDataPipelineIntegration:
             mock_av_fetch.return_value = mock_av_data
 
             # Data handler with failover
-            data_handler = DataHandler()
+            data_handler = DataHandler(['yfinance'])
             data_handler.add_fetcher('yahoo', YFinanceFetcher())
             data_handler.add_fetcher('alphavantage', AlphaVantageFetcher())
 
@@ -372,7 +372,7 @@ class TestDataPipelineIntegration:
 
         with patch.object(YFinanceFetcher, 'fetch', side_effect=mock_fetch):
             fetcher = YFinanceFetcher()
-            data_handler = DataHandler()
+            data_handler = DataHandler(['yfinance'])
             data_handler.enable_cache(cache_dir='./test_cache')
 
             # First fetch - should hit the source

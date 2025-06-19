@@ -157,7 +157,6 @@ class TestBacktestEngine:
         assert "test_strategy" in loaded_results
         assert loaded_results["test_strategy"]["metrics"]["total_return"] == 25.5
 
-    @pytest.mark.skip(reason="Requires backtrader cerebro context")
     def test_algostack_strategy_adapter(self, strategy, sample_data):
         """Test the Backtrader strategy adapter."""
         # Create mock Backtrader environment

@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pandas as pd
 import pytest
+import pytest_asyncio
 
 # Mock all dependencies before importing
 sys.modules['apscheduler'] = Mock()
@@ -60,13 +61,7 @@ from core.live_engine import LiveTradingEngine, TradingMode
 from strategies.base import BaseStrategy, Signal
 
 
-def run_async(coro):
-    """Helper to run async code in sync tests."""
-    loop = asyncio.new_event_loop()
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
+# Removed run_async helper - using pytest-asyncio instead
 
 
 class MockStrategy(BaseStrategy):
@@ -193,7 +188,8 @@ class TestLiveTradingEngineComplete:
         engine.strategies['test_strategy'] = MockStrategy()
         return engine
 
-    def test_start_stop_engine(self, engine, mock_components):
+    @pytest.mark.asyncio
+    async def test_start_stop_engine(self, engine, mock_components):
         """Test starting and stopping the engine."""
         # Mock main loop to exit immediately
         async def mock_main_loop():
@@ -202,45 +198,51 @@ class TestLiveTradingEngineComplete:
         engine._main_loop = mock_main_loop
 
         # Start engine
-        run_async(engine.start())
+        await engine.start()
 
         # Verify connections
         mock_components['executor'].connect.assert_called_once()
         assert engine.scheduler.started
 
         # Stop engine
-        run_async(engine.stop())
+        await engine.stop()
 
         # Verify disconnections
         mock_components['executor'].disconnect.assert_called_once()
         assert hasattr(engine.scheduler, 'shutdown_called') and engine.scheduler.shutdown_called
         assert not engine.is_running
 
-    def test_main_loop_execution(self, engine, mock_components):
+    @pytest.mark.asyncio
+    async def test_main_loop_execution(self, engine, mock_components):
         """Test main loop execution."""
         # Track iterations
         iterations = 0
 
-        async def mock_process_market_data():
+        async def mock_update_market_data():
             nonlocal iterations
             iterations += 1
             if iterations > 2:
                 engine.is_running = False
 
-        engine._process_market_data = mock_process_market_data
+        engine._update_market_data = mock_update_market_data
+        engine._update_positions = AsyncMock()
+        engine._run_strategies = AsyncMock()
         engine._check_risk_limits = AsyncMock()
-        engine._update_portfolio = AsyncMock()
+        engine._check_memory_health = AsyncMock()
         engine.is_running = True
+        engine.is_trading_hours = True
 
-        # Run main loop
-        run_async(engine._main_loop())
+        # Run main loop with mocked sleep
+        with patch('asyncio.sleep', new_callable=AsyncMock):
+            await engine._main_loop()
 
         # Verify execution
         assert iterations > 2
         assert engine._check_risk_limits.call_count >= 2
-        assert engine._update_portfolio.call_count >= 2
+        assert engine._update_positions.call_count >= 2
 
-    def test_process_market_data(self, engine, mock_components):
+    @pytest.mark.asyncio
+    async def test_process_market_data(self, engine, mock_components):
         """Test market data processing."""
         # Setup market data
         market_data = pd.DataFrame({
@@ -250,12 +252,13 @@ class TestLiveTradingEngineComplete:
         mock_components['data_handler'].get_latest_data.return_value = market_data
 
         # Process data
-        run_async(engine._process_market_data())
+        await engine._process_market_data()
 
         # Verify strategy was called
         assert engine.strategies['test_strategy'].next_called
 
-    def test_check_risk_limits(self, engine, mock_components):
+    @pytest.mark.asyncio
+    async def test_check_risk_limits(self, engine, mock_components):
         """Test risk limit checking."""
         # Add a position
         position = Mock()
@@ -266,13 +269,14 @@ class TestLiveTradingEngineComplete:
         mock_components['portfolio_engine'].positions = {"AAPL": position}
 
         # Check risk limits
-        run_async(engine._check_risk_limits())
+        await engine._check_risk_limits()
 
         # Verify risk checks
         mock_components['risk_manager'].check_position_risk.assert_called()
         mock_components['risk_manager'].check_portfolio_risk.assert_called()
 
-    def test_update_portfolio(self, engine, mock_components):
+    @pytest.mark.asyncio
+    async def test_update_portfolio(self, engine, mock_components):
         """Test portfolio updates."""
         # Setup price data
         mock_components['data_handler'].get_current_price.return_value = 155.0
@@ -283,13 +287,14 @@ class TestLiveTradingEngineComplete:
         mock_components['portfolio_engine'].positions = {"AAPL": position}
 
         # Update portfolio
-        run_async(engine._update_portfolio())
+        await engine._update_portfolio()
 
         # Verify updates
         mock_components['portfolio_engine'].update_price.assert_called_with("AAPL", 155.0)
         mock_components['portfolio_engine'].update_portfolio_value.assert_called()
 
-    def test_process_signal(self, engine, mock_components):
+    @pytest.mark.asyncio
+    async def test_process_signal(self, engine, mock_components):
         """Test signal processing."""
         signal = Signal(
             symbol="AAPL",
@@ -306,7 +311,7 @@ class TestLiveTradingEngineComplete:
         mock_components['order_manager'].create_order.return_value = order
 
         # Process signal
-        run_async(engine._process_signal(signal))
+        await engine._process_signal(signal)
 
         # Verify order creation and submission
         mock_components['risk_manager'].check_pre_trade.assert_called()
@@ -314,7 +319,8 @@ class TestLiveTradingEngineComplete:
         mock_components['order_manager'].create_order.assert_called()
         mock_components['order_manager'].submit_order.assert_called()
 
-    def test_process_signal_rejected_by_risk(self, engine, mock_components):
+    @pytest.mark.asyncio
+    async def test_process_signal_rejected_by_risk(self, engine, mock_components):
         """Test signal rejected by risk manager."""
         signal = Signal(
             symbol="AAPL",
@@ -329,14 +335,15 @@ class TestLiveTradingEngineComplete:
         mock_components['risk_manager'].check_pre_trade.return_value = False
 
         # Process signal
-        run_async(engine._process_signal(signal))
+        await engine._process_signal(signal)
 
         # Verify order not created
         mock_components['order_manager'].create_order.assert_not_called()
 
-    def test_initialize_data_feeds(self, engine, mock_components):
+    @pytest.mark.asyncio
+    async def test_initialize_data_feeds(self, engine, mock_components):
         """Test data feed initialization."""
-        run_async(engine._initialize_data_feeds())
+        await engine._initialize_data_feeds()
 
         # Verify subscriptions
         expected_symbols = ["AAPL", "GOOGL"]
@@ -375,7 +382,8 @@ class TestLiveTradingEngineComplete:
         reporting_jobs = [job for job in engine.scheduler.jobs if 'report' in str(job.func)]
         assert len(reporting_jobs) > 0
 
-    def test_generate_daily_report(self, engine, mock_components):
+    @pytest.mark.asyncio
+    async def test_generate_daily_report(self, engine, mock_components):
         """Test daily report generation."""
         # Setup portfolio state
         mock_components['portfolio_engine'].to_dict.return_value = {
@@ -387,7 +395,7 @@ class TestLiveTradingEngineComplete:
         }
 
         # Generate report
-        run_async(engine._generate_daily_report())
+        await engine._generate_daily_report()
 
         # Report should be created (check stats)
         assert 'daily_pnl' in engine.stats
@@ -454,7 +462,8 @@ class TestLiveTradingEngineComplete:
         # Should not raise
         engine._load_state()
 
-    def test_cancel_all_orders(self, engine, mock_components):
+    @pytest.mark.asyncio
+    async def test_cancel_all_orders(self, engine, mock_components):
         """Test cancelling all orders."""
         # Mock active orders
         orders = [
@@ -465,7 +474,7 @@ class TestLiveTradingEngineComplete:
         mock_components['order_manager'].get_active_orders.return_value = orders
 
         # Cancel all
-        run_async(engine._cancel_all_orders())
+        await engine._cancel_all_orders()
 
         # Verify all cancelled
         assert mock_components['order_manager'].cancel_order.call_count == 3
@@ -473,7 +482,8 @@ class TestLiveTradingEngineComplete:
         mock_components['order_manager'].cancel_order.assert_any_call("order2")
         mock_components['order_manager'].cancel_order.assert_any_call("order3")
 
-    def test_emergency_stop(self, engine, mock_components):
+    @pytest.mark.asyncio
+    async def test_emergency_stop(self, engine, mock_components):
         """Test emergency stop functionality."""
         # Add position
         position = Mock()
@@ -487,7 +497,7 @@ class TestLiveTradingEngineComplete:
         mock_components['order_manager'].create_order.return_value = order
 
         # Emergency stop
-        run_async(engine.emergency_stop("Test emergency"))
+        await engine.emergency_stop("Test emergency")
 
         # Verify all positions closed
         mock_components['order_manager'].create_order.assert_called()
@@ -533,19 +543,21 @@ class TestLiveTradingEngineComplete:
         for strategy in engine.strategies.values():
             assert not strategy.enabled
 
-    def test_check_portfolio_health(self, engine, mock_components):
+    @pytest.mark.asyncio
+    async def test_check_portfolio_health(self, engine, mock_components):
         """Test portfolio health checking."""
         # Setup unhealthy portfolio (big loss)
         mock_components['portfolio_engine'].total_equity = 70000.0  # 30% loss
         mock_components['portfolio_engine'].cash = 70000.0
 
         # Check health
-        run_async(engine._check_portfolio_health())
+        await engine._check_portfolio_health()
 
         # Should trigger some action (logged warning at minimum)
         # In real implementation might trigger emergency stop
 
-    def test_close_position(self, engine, mock_components):
+    @pytest.mark.asyncio
+    async def test_close_position(self, engine, mock_components):
         """Test closing a position."""
         # Mock position
         position = Mock()
@@ -559,7 +571,7 @@ class TestLiveTradingEngineComplete:
         mock_components['order_manager'].create_order.return_value = order
 
         # Close position
-        run_async(engine._close_position("AAPL"))
+        await engine._close_position("AAPL")
 
         # Verify sell order created
         mock_components['order_manager'].create_order.assert_called()
@@ -567,13 +579,14 @@ class TestLiveTradingEngineComplete:
         assert call_args['side'] == 'SELL'
         assert call_args['quantity'] == 100
 
-    def test_reconnect_data_feed(self, engine, mock_components):
+    @pytest.mark.asyncio
+    async def test_reconnect_data_feed(self, engine, mock_components):
         """Test data feed reconnection."""
         # Simulate disconnection and reconnection
         mock_components['data_handler'].subscribe.reset_mock()
 
         # Reconnect
-        run_async(engine._reconnect_data_feed())
+        await engine._reconnect_data_feed()
 
         # Verify resubscription
         assert mock_components['data_handler'].subscribe.call_count > 0
@@ -598,7 +611,8 @@ class TestLiveTradingEngineComplete:
         # Stats should be updated
         assert engine.stats.get('orders_filled', 0) > 0
 
-    def test_get_portfolio_summary(self, engine, mock_components):
+    @pytest.mark.asyncio
+    async def test_get_portfolio_summary(self, engine, mock_components):
         """Test getting portfolio summary."""
         # Setup portfolio
         mock_components['portfolio_engine'].to_dict.return_value = {
@@ -607,7 +621,7 @@ class TestLiveTradingEngineComplete:
             'positions': {'AAPL': {'quantity': 100}}
         }
 
-        summary = run_async(engine.get_portfolio_summary())
+        summary = await engine.get_portfolio_summary()
 
         assert summary['cash'] == 95000.0
         assert summary['total_equity'] == 105000.0
@@ -667,14 +681,15 @@ class TestLiveTradingEngineComplete:
         assert size == 100
         mock_components['risk_manager'].calculate_position_size.assert_called()
 
-    def test_market_open_close_handlers(self, engine):
+    @pytest.mark.asyncio
+    async def test_market_open_close_handlers(self, engine):
         """Test market open/close event handlers."""
         # Market open
-        run_async(engine._handle_market_open())
+        await engine._handle_market_open()
         assert 'market_open_time' in engine.stats
 
         # Market close
-        run_async(engine._handle_market_close())
+        await engine._handle_market_close()
         assert 'market_close_time' in engine.stats
 
     def test_handle_data_error(self, engine, mock_components):
