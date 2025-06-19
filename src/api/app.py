@@ -33,6 +33,8 @@ from api.models import (
     WSSubscription,
 )
 from core.live_engine import LiveTradingEngine
+from api.routers import health, trading, performance, risk, strategies, export
+from api.dependencies import set_trading_engine, rate_limit_api
 
 logger = logging.getLogger(__name__)
 
@@ -126,41 +128,46 @@ class MonitoringAPI:
 
     def _setup_routes(self):
         """Setup API routes."""
-
+        
+        # Set the trading engine for dependency injection
+        if self.engine:
+            set_trading_engine(self.engine)
+        
+        # Include routers with API versioning
+        self.app.include_router(health.router, prefix="/api/v1", tags=["health"])
+        self.app.include_router(trading.router, prefix="/api/v1", tags=["trading"])
+        self.app.include_router(performance.router, prefix="/api/v1", tags=["performance"])
+        self.app.include_router(risk.router, prefix="/api/v1", tags=["risk"])
+        self.app.include_router(strategies.router, prefix="/api/v1", tags=["strategies"])
+        self.app.include_router(export.router, prefix="/api/v1", tags=["export"])
+        
+        # Also add health endpoint at root for tests
+        self.app.include_router(health.router, tags=["health"])
+        
+        # Keep legacy endpoints for backward compatibility
         # System endpoints
         self.app.get("/api/system/info", response_model=SystemInfo)(
             self.get_system_info
         )
         self.app.post("/api/system/control")(self.control_system)
 
-        # Strategy endpoints
+        # Keep legacy strategy endpoints
         self.app.get("/api/strategies", response_model=list[StrategyInfo])(
             self.get_strategies
         )
-        self.app.get("/api/strategies/{strategy_id}", response_model=StrategyInfo)(
-            self.get_strategy
-        )
         self.app.post("/api/strategies/control")(self.control_strategy)
 
-        # Position endpoints
+        # Keep legacy endpoints that tests expect
         self.app.get("/api/positions", response_model=list[PositionInfo])(
             self.get_positions
         )
-        self.app.get("/api/positions/{symbol}", response_model=PositionInfo)(
-            self.get_position
-        )
-
-        # Order endpoints
         self.app.get("/api/orders", response_model=list[OrderInfo])(self.get_orders)
-        self.app.get("/api/orders/{order_id}", response_model=OrderInfo)(self.get_order)
         self.app.post("/api/orders")(self.create_order)
-        self.app.delete("/api/orders/{order_id}")(self.cancel_order)
-
-        # Performance endpoints
         self.app.get("/api/performance", response_model=PerformanceMetrics)(
             self.get_performance
         )
-        self.app.get("/api/risk", response_model=RiskMetrics)(self.get_risk_metrics)
+        self.app.get("/api/trades", response_model=list[TradeInfo])(self.get_trades)
+        self.app.get("/api/trades/export")(self.export_trades)
 
         # Alert endpoints
         self.app.get("/api/alerts", response_model=list[AlertInfo])(self.get_alerts)
@@ -168,10 +175,6 @@ class MonitoringAPI:
 
         # Signal endpoints
         self.app.get("/api/signals", response_model=list[SignalInfo])(self.get_signals)
-
-        # Trade history endpoints
-        self.app.get("/api/trades", response_model=list[TradeInfo])(self.get_trades)
-        self.app.get("/api/trades/export")(self.export_trades)
 
         # WebSocket endpoint
         self.app.websocket("/ws")(self.websocket_endpoint)
@@ -665,15 +668,6 @@ def create_app(engine: Optional[LiveTradingEngine] = None) -> FastAPI:
 app = None
 ws_manager = ConnectionManager()
 
-
-def get_trading_engine():
-    """Get trading engine instance (for dependency injection)."""
-    # This would be properly implemented with FastAPI dependency injection
-    return None
-
-
-def get_portfolio_engine():
-    """Get portfolio engine instance (for dependency injection)."""
-    # This would be properly implemented with FastAPI dependency injection
-    return None
+# Import dependency functions for backward compatibility
+from api.dependencies import get_trading_engine, get_portfolio_engine
 

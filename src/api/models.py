@@ -64,6 +64,12 @@ class StrategyInfo(BaseModel):
     signals_generated: int
     orders_placed: int
     last_signal_time: Optional[datetime]
+    # Additional fields for Phase 2
+    strategy_id: Optional[str] = None
+    description: Optional[str] = None
+    active: Optional[bool] = None
+    performance: Optional[dict[str, Any]] = None
+    last_signal: Optional[datetime] = None
 
 
 class PositionInfo(BaseModel):
@@ -245,3 +251,168 @@ class DashboardConfig(BaseModel):
     visible_strategies: list[str] = []
     alert_filters: list[str] = []
     theme: str = "dark"
+
+
+# Additional Models for Phase 2 Implementation
+
+class Position(BaseModel):
+    """Position model for API"""
+    position_id: str
+    symbol: str
+    quantity: float
+    entry_price: float
+    current_price: float
+    market_value: float
+    pnl: float
+    pnl_percentage: float
+    strategy_id: Optional[str]
+    opened_at: datetime
+    updated_at: datetime
+
+
+class PositionCreate(BaseModel):
+    """Position creation request"""
+    symbol: str
+    quantity: float
+    entry_price: float
+    strategy_id: Optional[str] = None
+
+
+class PositionResponse(BaseModel):
+    """Position response model"""
+    position_id: str
+    symbol: str
+    quantity: float
+    entry_price: float
+    current_price: float
+    market_value: float
+    pnl: float
+    pnl_percentage: float
+    strategy_id: Optional[str]
+    opened_at: datetime
+    updated_at: datetime
+
+
+class Order(BaseModel):
+    """Order model for API"""
+    order_id: str
+    symbol: str
+    side: str  # or OrderSide enum
+    quantity: float
+    order_type: str  # or OrderType enum
+    limit_price: Optional[float] = None
+    stop_price: Optional[float] = None
+    status: str  # or OrderStatus enum
+    filled_quantity: float = 0
+    average_fill_price: Optional[float] = None
+    strategy_id: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    broker_order_id: Optional[str] = None
+
+
+class OrderCreate(BaseModel):
+    """Order creation request"""
+    symbol: str
+    side: str
+    quantity: float
+    order_type: str
+    limit_price: Optional[float] = None
+    stop_price: Optional[float] = None
+    strategy_id: Optional[str] = None
+
+
+class OrderUpdate(BaseModel):
+    """Order update request"""
+    quantity: Optional[float] = None
+    limit_price: Optional[float] = None
+
+
+class OrderResponse(BaseModel):
+    """Order response model"""
+    order_id: str
+    symbol: str
+    side: str
+    quantity: float
+    order_type: str
+    limit_price: Optional[float]
+    stop_price: Optional[float]
+    status: str
+    filled_quantity: float
+    average_fill_price: Optional[float]
+    strategy_id: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+    broker_order_id: Optional[str]
+
+
+class Trade(BaseModel):
+    """Trade model for API"""
+    trade_id: str
+    symbol: str
+    side: str
+    quantity: float
+    price: float
+    commission: float
+    timestamp: datetime
+    order_id: str
+    strategy_id: Optional[str]
+    pnl: Optional[float]
+
+
+class TradeResponse(BaseModel):
+    """Trade response model"""
+    trade_id: str
+    symbol: str
+    side: str
+    quantity: float
+    price: float
+    commission: float
+    timestamp: datetime
+    order_id: str
+    strategy_id: Optional[str]
+    pnl: Optional[float]
+
+
+class PnLTimeSeries(BaseModel):
+    """P&L time series data"""
+    timestamps: list[datetime]
+    realized_pnl: list[float]
+    unrealized_pnl: list[float]
+    total_pnl: list[float]
+    fees: list[float]
+    granularity: str
+    timeframe: str
+
+
+class RiskLimits(BaseModel):
+    """Risk limit configuration"""
+    max_position_size: float
+    max_portfolio_var: float
+    max_daily_loss: float
+    max_sector_concentration: float
+    max_correlation: float
+    max_leverage: float
+    stop_loss_pct: float
+    trailing_stop_pct: float
+    circuit_breaker_threshold: float
+    last_updated: datetime
+
+
+class RiskLimitUpdate(BaseModel):
+    """Risk limit update request"""
+    max_position_size: Optional[float] = None
+    max_portfolio_var: Optional[float] = None
+    max_daily_loss: Optional[float] = None
+    max_sector_concentration: Optional[float] = None
+    max_correlation: Optional[float] = None
+    max_leverage: Optional[float] = None
+    stop_loss_pct: Optional[float] = None
+    trailing_stop_pct: Optional[float] = None
+    circuit_breaker_threshold: Optional[float] = None
+
+
+class StrategyConfig(BaseModel):
+    """Strategy configuration"""
+    parameters: dict[str, Any]
+    active: bool
