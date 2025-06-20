@@ -87,7 +87,8 @@ class TestPortfolioEngine:
 
         # Close with profit
         exit_price = 460.0
-        result = portfolio.close_position(sample_signal.symbol, exit_price)
+        # Use close_position_simple which matches the expected signature
+        result = portfolio.close_position_simple(sample_signal.symbol, exit_price)
 
         assert result is not None
         assert result["pnl"] == (exit_price - sample_signal.price) * position_size
@@ -159,7 +160,7 @@ class TestPortfolioEngine:
         """Test portfolio metrics calculation."""
         metrics = portfolio.calculate_portfolio_metrics()
 
-        assert metrics["current_equity"] == portfolio.initial_capital
+        assert metrics["total_equity"] == portfolio.initial_capital
         assert metrics["cash"] == portfolio.initial_capital
         assert metrics["positions_value"] == 0
         assert metrics["position_count"] == 0

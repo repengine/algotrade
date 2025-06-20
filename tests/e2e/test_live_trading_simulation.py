@@ -360,8 +360,9 @@ class TestLiveTradingSimulation:
             await asyncio.sleep(0.1)  # Simulated delay
             executor.is_connected = True
 
-            # Trigger reconnection
-            await engine.check_connection()
+            # The engine should detect reconnection automatically
+            # when processing the next market data update
+            await engine.process_market_data(market_data)
 
             # Verify recovery behavior
             assert executor.connect.called
@@ -605,7 +606,9 @@ class TestLiveTradingSimulation:
             market_data = self._generate_scenario_data(scenario)
 
             # Process through all strategies
-            signals = await engine.collect_signals(market_data)
+            # Process market data first, then collect signals
+            await engine.process_market_data(market_data)
+            signals = await engine.collect_signals()
 
             # Categorize signals
             for signal in signals:

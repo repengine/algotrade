@@ -55,7 +55,11 @@ class EnhancedOrderManager(ExecutionCallback):
     - Comprehensive event handling
     """
 
-    def __init__(self, risk_manager: Optional[Any] = None, sync_config: Optional[dict[str, Any]] = None):
+    def __init__(
+        self,
+        risk_manager: Optional[Any] = None,
+        sync_config: Optional[dict[str, Any]] = None,
+    ):
         """
         Initialize enhanced order manager.
 
@@ -221,15 +225,15 @@ class EnhancedOrderManager(ExecutionCallback):
             # Check for duplicate orders if synchronizer is active
             if self.order_synchronizer:
                 is_duplicate = await self.order_synchronizer.check_duplicate_order(
-                    order.symbol,
-                    order.side.value,
-                    order.quantity
+                    order.symbol, order.side.value, order.quantity
                 )
                 if is_duplicate:
                     logger.warning(f"Duplicate order prevented: {order}")
                     order.status = OrderStatus.REJECTED
                     order.metadata["rejection_reason"] = "Duplicate order detected"
-                    await self._record_event(order, OrderEventType.REJECTED, {"reason": "duplicate"})
+                    await self._record_event(
+                        order, OrderEventType.REJECTED, {"reason": "duplicate"}
+                    )
                     return False
 
             # Submit to executor
@@ -317,16 +321,17 @@ class EnhancedOrderManager(ExecutionCallback):
     def get_recent_fills(self, seconds: int = 60) -> list[Order]:
         """Get orders filled in the last N seconds."""
         from datetime import datetime, timedelta
+
         cutoff_time = datetime.now() - timedelta(seconds=seconds)
         recent_fills = []
 
         for order in self._orders.values():
             if order.status == OrderStatus.FILLED:
                 # Check if order has a fill timestamp
-                if hasattr(order, 'filled_timestamp') and order.filled_timestamp:
+                if hasattr(order, "filled_timestamp") and order.filled_timestamp:
                     if order.filled_timestamp >= cutoff_time:
                         recent_fills.append(order)
-                elif hasattr(order, 'updated_at') and order.updated_at:
+                elif hasattr(order, "updated_at") and order.updated_at:
                     # Fallback to updated_at if no fill timestamp
                     if order.updated_at >= cutoff_time:
                         recent_fills.append(order)
@@ -357,7 +362,9 @@ class EnhancedOrderManager(ExecutionCallback):
         if self.order_synchronizer:
             # Note: This is synchronous check for simplicity in add_order
             # In async context, use submit_order which has async duplicate check
-            logger.warning("Duplicate check skipped in sync add_order - use submit_order for full validation")
+            logger.warning(
+                "Duplicate check skipped in sync add_order - use submit_order for full validation"
+            )
 
         # Update order ID if different
         if order.order_id != order_id:
@@ -367,19 +374,21 @@ class EnhancedOrderManager(ExecutionCallback):
         # Validate with risk manager if available
         if self.risk_manager:
             # Simple synchronous validation - full async validation in submit_order
-            if hasattr(self.risk_manager, 'validate_order_params'):
+            if hasattr(self.risk_manager, "validate_order_params"):
                 if not self.risk_manager.validate_order_params(order):
-                    raise ValueError("Order rejected by risk manager parameter validation")
+                    raise ValueError(
+                        "Order rejected by risk manager parameter validation"
+                    )
 
         # Store order
         self._orders[order_id] = order
         self._order_stats["total_orders"] += 1
 
         # Store strategy association
-        if hasattr(order, 'strategy_id') and order.strategy_id:
+        if hasattr(order, "strategy_id") and order.strategy_id:
             self._strategy_orders[order.strategy_id].add(order_id)
-        elif hasattr(order, 'metadata') and order.metadata.get('strategy_id'):
-            self._strategy_orders[order.metadata['strategy_id']].add(order_id)
+        elif hasattr(order, "metadata") and order.metadata.get("strategy_id"):
+            self._strategy_orders[order.metadata["strategy_id"]].add(order_id)
 
         # Initialize order fills list
         if order_id not in self._order_fills:
@@ -390,7 +399,7 @@ class EnhancedOrderManager(ExecutionCallback):
             "timestamp": datetime.now(),
             "event_type": OrderEventType.CREATED,
             "order_status": order.status,
-            "data": {}
+            "data": {},
         }
         self._order_events[order_id].append(event)
 
@@ -484,7 +493,9 @@ class EnhancedOrderManager(ExecutionCallback):
                     self._order_stats["cancelled_orders"] += 1
 
                 # Log status update
-                logger.info(f"Order {order.order_id} status updated to {order.status.value}")
+                logger.info(
+                    f"Order {order.order_id} status updated to {order.status.value}"
+                )
 
                 # Trigger event callbacks
                 event_type = self._map_status_to_event(order.status)
@@ -503,7 +514,9 @@ class EnhancedOrderManager(ExecutionCallback):
         }
         return mapping.get(status)
 
-    def _trigger_event(self, event_type: str, order: Order, data: Optional[Any] = None) -> None:
+    def _trigger_event(
+        self, event_type: str, order: Order, data: Optional[Any] = None
+    ) -> None:
         """Trigger event callbacks."""
         for callback in self._event_callbacks.get(event_type, []):
             try:
@@ -516,9 +529,27 @@ class EnhancedOrderManager(ExecutionCallback):
         if not self.risk_manager:
             return True
 
-        # TODO: Implement risk validation
-        # This would check position limits, buying power, etc.
-        return True
+        try:
+            # Check if risk manager has async validation method
+            if hasattr(self.risk_manager, "validate_order_risk"):
+                # Call async method if it's coroutine
+                if asyncio.iscoroutinefunction(self.risk_manager.validate_order_risk):
+                    return await self.risk_manager.validate_order_risk(order)
+                else:
+                    # Call sync method
+                    return self.risk_manager.validate_order_risk(order)
+            elif hasattr(self.risk_manager, "validate_order_risk_sync"):
+                # Fallback to sync method
+                return self.risk_manager.validate_order_risk_sync(order)
+            else:
+                # No validation method available
+                logger.warning("Risk manager has no validate_order_risk method")
+                return True
+
+        except Exception as e:
+            logger.error(f"Error during risk validation: {e}")
+            # On error, reject the order for safety
+            return False
 
     async def _handle_order_status(self, order: Order) -> None:
         """Process order status update."""
@@ -622,15 +653,19 @@ class EnhancedOrderManager(ExecutionCallback):
 
             # Create synchronizer
             self.order_synchronizer = OrderStateSynchronizer(
-                order_manager=self,
-                executor=executor,
-                config=self.sync_config
+                order_manager=self, executor=executor, config=self.sync_config
             )
 
             # Register callbacks
-            self.order_synchronizer.register_mismatch_callback(self._handle_sync_mismatch)
-            self.order_synchronizer.register_duplicate_callback(self._handle_duplicate_detection)
-            self.order_synchronizer.register_missed_fill_callback(self._handle_missed_fill)
+            self.order_synchronizer.register_mismatch_callback(
+                self._handle_sync_mismatch
+            )
+            self.order_synchronizer.register_duplicate_callback(
+                self._handle_duplicate_detection
+            )
+            self.order_synchronizer.register_missed_fill_callback(
+                self._handle_missed_fill
+            )
 
             # Start synchronization
             await self.order_synchronizer.start()
@@ -659,8 +694,8 @@ class EnhancedOrderManager(ExecutionCallback):
                 "sync_mismatch",
                 {
                     "sync_status": sync_state.sync_status.value,
-                    "discrepancies": sync_state.discrepancies
-                }
+                    "discrepancies": sync_state.discrepancies,
+                },
             )
 
     async def _handle_duplicate_detection(self, duplicate_info) -> None:

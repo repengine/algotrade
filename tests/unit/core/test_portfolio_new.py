@@ -265,7 +265,7 @@ class TestPortfolioMetrics:
         # But we track current equity, so cash = equity - positions_value
         assert metrics["cash"] == 100000 - 76500  # 23500
 
-        assert metrics["current_equity"] == 100000  # Still at initial
+        assert metrics["total_equity"] == 100000  # Still at initial
         assert metrics["position_count"] == 3
         assert metrics["long_positions"] == 2
         assert metrics["short_positions"] == 1
@@ -315,7 +315,7 @@ class TestPortfolioMetrics:
         portfolio = PortfolioEngine({"initial_capital": 100000})
         metrics = portfolio.calculate_portfolio_metrics()
 
-        assert metrics["current_equity"] == 100000
+        assert metrics["total_equity"] == 100000
         assert metrics["cash"] == 100000
         assert metrics["positions_value"] == 0
         assert metrics["unrealized_pnl"] == 0
@@ -737,7 +737,7 @@ class TestPortfolioStateTransitions:
         assert len(portfolio.performance_history) == 1
         assert 'timestamp' in portfolio.performance_history[0]
         assert 'metrics' in portfolio.performance_history[0]
-        assert portfolio.performance_history[0]['metrics']['current_equity'] == 100000
+        assert portfolio.performance_history[0]['metrics']['total_equity'] == 100000
 
 
 class TestEdgeCases:

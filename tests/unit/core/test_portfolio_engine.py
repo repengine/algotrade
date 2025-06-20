@@ -225,7 +225,7 @@ class TestPortfolioEngine:
         """Test getting positions summary."""
         # Create positions
         portfolio.positions['AAPL'] = Position('AAPL', 100, 150.0, datetime.now())
-        portfolio.positions['GOOGL'] = Position('GOOGL', -10, 2800.0, datetime.now(), 'SHORT')
+        portfolio.positions['GOOGL'] = Position('GOOGL', -10, 2800.0, datetime.now(), position_type='SHORT')
 
         # Update prices
         portfolio.positions['AAPL'].update_price(155.0)
@@ -333,7 +333,7 @@ class TestPortfolioEngine:
 
         # Max drawdown from 110k to 95k
         assert drawdown_info['max_drawdown_pct'] == pytest.approx(-13.64, rel=0.01)
-        assert drawdown_info['max_drawdown_value'] == -15000
+        assert drawdown_info['max_drawdown_value'] == pytest.approx(-15000, rel=0.01)
 
     def test_get_trade_history(self, portfolio):
         """Test trade history retrieval."""

@@ -73,167 +73,171 @@ class TestPaperExecutor:
     async def test_submit_market_order(self, paper_executor, test_callback):
         """Test market order submission."""
         await paper_executor.connect()
-        paper_executor.register_callback(test_callback)
+        try:
+            paper_executor.register_callback(test_callback)
 
-        # Set price data
-        paper_executor.update_price("AAPL", 150.0)
+            # Set price data
+            paper_executor.update_price("AAPL", 150.0)
 
-        # Create and submit order
-        order = Order(
-            order_id="TEST-001",
-            symbol="AAPL",
-            side=OrderSide.BUY,
-            quantity=100,
-            order_type=OrderType.MARKET,
-        )
+            # Create and submit order
+            order = Order(
+                order_id="TEST-001",
+                symbol="AAPL",
+                side=OrderSide.BUY,
+                quantity=100,
+                order_type=OrderType.MARKET,
+            )
 
-        order_id = await paper_executor.submit_order(order)
-        assert order_id == "TEST-001"
+            order_id = await paper_executor.submit_order(order)
+            assert order_id == "TEST-001"
 
-        # Wait for fill
-        await asyncio.sleep(0.1)
+            # Wait for fill
+            await asyncio.sleep(0.1)
 
-        # Check callbacks
-        assert len(test_callback.order_updates) >= 2  # Submitted + Filled
-        assert test_callback.order_updates[-1].status == OrderStatus.FILLED
-        assert len(test_callback.fills) == 1
+            # Check callbacks
+            assert len(test_callback.order_updates) >= 2  # Submitted + Filled
+            assert test_callback.order_updates[-1].status == OrderStatus.FILLED
+            assert len(test_callback.fills) == 1
 
-        # Check fill details
-        fill = test_callback.fills[0]
-        assert fill.symbol == "AAPL"
-        assert fill.quantity == 100
-        assert fill.price == pytest.approx(150.0 * 1.0001)  # With slippage
-
-        await paper_executor.disconnect()
+            # Check fill details
+            fill = test_callback.fills[0]
+            assert fill.symbol == "AAPL"
+            assert fill.quantity == 100
+            assert fill.price == pytest.approx(150.0 * 1.0001)  # With slippage
+        finally:
+            await paper_executor.disconnect()
 
     @pytest.mark.asyncio
     async def test_submit_limit_order(self, paper_executor, test_callback):
         """Test limit order submission."""
         await paper_executor.connect()
-        paper_executor.register_callback(test_callback)
+        try:
+            paper_executor.register_callback(test_callback)
 
-        # Set price data
-        paper_executor.update_price("AAPL", 150.0)
+            # Set price data
+            paper_executor.update_price("AAPL", 150.0)
 
-        # Create limit order above market
-        order = Order(
-            order_id="TEST-002",
-            symbol="AAPL",
-            side=OrderSide.BUY,
-            quantity=100,
-            order_type=OrderType.LIMIT,
-            limit_price=151.0,  # Above market, should fill immediately
-        )
+            # Create limit order above market
+            order = Order(
+                order_id="TEST-002",
+                symbol="AAPL",
+                side=OrderSide.BUY,
+                quantity=100,
+                order_type=OrderType.LIMIT,
+                limit_price=151.0,  # Above market, should fill immediately
+            )
 
-        await paper_executor.submit_order(order)
+            await paper_executor.submit_order(order)
 
-        # Wait for fill
-        await asyncio.sleep(0.2)  # Increase wait time to ensure fill
+            # Wait for fill
+            await asyncio.sleep(0.2)  # Increase wait time to ensure fill
 
-        # Check fill at limit price or better
-        assert len(test_callback.fills) == 1
-        fill = test_callback.fills[0]
-        assert fill.price <= 151.0  # Should fill at market price (150) or better
-
-        await paper_executor.disconnect()
+            # Check fill at limit price or better
+            assert len(test_callback.fills) == 1
+            fill = test_callback.fills[0]
+            assert fill.price <= 151.0  # Should fill at market price (150) or better
+        finally:
+            await paper_executor.disconnect()
 
     @pytest.mark.asyncio
     async def test_cancel_order(self, paper_executor, test_callback):
         """Test order cancellation."""
         await paper_executor.connect()
-        paper_executor.register_callback(test_callback)
+        try:
+            paper_executor.register_callback(test_callback)
 
-        # Set price data
-        paper_executor.update_price("AAPL", 150.0)
+            # Set price data
+            paper_executor.update_price("AAPL", 150.0)
 
-        # Create limit order that won't fill immediately
-        order = Order(
-            order_id="TEST-003",
-            symbol="AAPL",
-            side=OrderSide.BUY,
-            quantity=100,
-            order_type=OrderType.LIMIT,
-            limit_price=140.0,  # Far below market
-        )
+            # Create limit order that won't fill immediately
+            order = Order(
+                order_id="TEST-003",
+                symbol="AAPL",
+                side=OrderSide.BUY,
+                quantity=100,
+                order_type=OrderType.LIMIT,
+                limit_price=140.0,  # Far below market
+            )
 
-        await paper_executor.submit_order(order)
+            await paper_executor.submit_order(order)
 
-        # Cancel before fill
-        success = await paper_executor.cancel_order("TEST-003")
-        assert success is True
+            # Cancel before fill
+            success = await paper_executor.cancel_order("TEST-003")
+            assert success is True
 
-        # Check status
-        assert len(test_callback.order_updates) >= 2
-        assert test_callback.order_updates[-1].status == OrderStatus.CANCELLED
-
-        await paper_executor.disconnect()
+            # Check status
+            assert len(test_callback.order_updates) >= 2
+            assert test_callback.order_updates[-1].status == OrderStatus.CANCELLED
+        finally:
+            await paper_executor.disconnect()
 
     @pytest.mark.asyncio
     async def test_insufficient_buying_power(self, paper_executor, test_callback):
         """Test order rejection due to insufficient buying power."""
         await paper_executor.connect()
-        paper_executor.register_callback(test_callback)
+        try:
+            paper_executor.register_callback(test_callback)
 
-        # Set price data
-        paper_executor.update_price("AAPL", 150.0)
+            # Set price data
+            paper_executor.update_price("AAPL", 150.0)
 
-        # Try to buy more than we can afford
-        order = Order(
-            order_id="TEST-004",
-            symbol="AAPL",
-            side=OrderSide.BUY,
-            quantity=10000,  # Would cost $1.5M
-            order_type=OrderType.MARKET,
-        )
+            # Try to buy more than we can afford
+            order = Order(
+                order_id="TEST-004",
+                symbol="AAPL",
+                side=OrderSide.BUY,
+                quantity=10000,  # Would cost $1.5M
+                order_type=OrderType.MARKET,
+            )
 
-        with pytest.raises(ValueError, match="Insufficient buying power"):
-            await paper_executor.submit_order(order)
-
-        await paper_executor.disconnect()
+            with pytest.raises(ValueError, match="Insufficient buying power"):
+                await paper_executor.submit_order(order)
+        finally:
+            await paper_executor.disconnect()
 
     @pytest.mark.asyncio
     async def test_position_tracking(self, paper_executor):
         """Test position tracking after fills."""
         await paper_executor.connect()
+        try:
+            # Set price data
+            paper_executor.update_price("AAPL", 150.0)
 
-        # Set price data
-        paper_executor.update_price("AAPL", 150.0)
+            # Buy 100 shares
+            buy_order = Order(
+                order_id="TEST-005",
+                symbol="AAPL",
+                side=OrderSide.BUY,
+                quantity=100,
+                order_type=OrderType.MARKET,
+            )
 
-        # Buy 100 shares
-        buy_order = Order(
-            order_id="TEST-005",
-            symbol="AAPL",
-            side=OrderSide.BUY,
-            quantity=100,
-            order_type=OrderType.MARKET,
-        )
+            await paper_executor.submit_order(buy_order)
+            await asyncio.sleep(0.1)
 
-        await paper_executor.submit_order(buy_order)
-        await asyncio.sleep(0.1)
+            # Check position
+            positions = await paper_executor.get_positions()
+            assert "AAPL" in positions
+            assert positions["AAPL"].quantity == 100
+            assert positions["AAPL"].average_cost == pytest.approx(150.0 * 1.0001)
 
-        # Check position
-        positions = await paper_executor.get_positions()
-        assert "AAPL" in positions
-        assert positions["AAPL"].quantity == 100
-        assert positions["AAPL"].average_cost == pytest.approx(150.0 * 1.0001)
+            # Sell 50 shares
+            sell_order = Order(
+                order_id="TEST-006",
+                symbol="AAPL",
+                side=OrderSide.SELL,
+                quantity=50,
+                order_type=OrderType.MARKET,
+            )
 
-        # Sell 50 shares
-        sell_order = Order(
-            order_id="TEST-006",
-            symbol="AAPL",
-            side=OrderSide.SELL,
-            quantity=50,
-            order_type=OrderType.MARKET,
-        )
+            await paper_executor.submit_order(sell_order)
+            await asyncio.sleep(0.1)
 
-        await paper_executor.submit_order(sell_order)
-        await asyncio.sleep(0.1)
-
-        # Check updated position
-        positions = await paper_executor.get_positions()
-        assert positions["AAPL"].quantity == 50
-
-        await paper_executor.disconnect()
+            # Check updated position
+            positions = await paper_executor.get_positions()
+            assert positions["AAPL"].quantity == 50
+        finally:
+            await paper_executor.disconnect()
 
     @pytest.mark.asyncio
     async def test_account_info(self, paper_executor):
@@ -306,27 +310,27 @@ class TestIBKRExecutor:
             executor.register_callback(test_callback)
 
             await executor.connect()
+            try:
+                # Submit order
+                order = Order(
+                    order_id="TEST-007",
+                    symbol="AAPL",
+                    side=OrderSide.BUY,
+                    quantity=100,
+                    order_type=OrderType.MARKET,
+                )
 
-            # Submit order
-            order = Order(
-                order_id="TEST-007",
-                symbol="AAPL",
-                side=OrderSide.BUY,
-                quantity=100,
-                order_type=OrderType.MARKET,
-            )
+                order_id = await executor.submit_order(order)
+                assert order_id == "TEST-007"
 
-            order_id = await executor.submit_order(order)
-            assert order_id == "TEST-007"
+                # Check adapter was called
+                mock_ibkr_adapter.place_order.assert_called_once()
 
-            # Check adapter was called
-            mock_ibkr_adapter.place_order.assert_called_once()
-
-            # Check order status updated
-            assert order.status == OrderStatus.SUBMITTED
-            assert len(test_callback.order_updates) == 1
-
-            await executor.disconnect()
+                # Check order status updated
+                assert order.status == OrderStatus.SUBMITTED
+                assert len(test_callback.order_updates) == 1
+            finally:
+                await executor.disconnect()
 
 
 class TestOrderValidation:

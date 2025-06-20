@@ -81,7 +81,7 @@ class PlateauDetector:
             self.min_delta = stability_threshold
 
         self.smoothing_factor = smoothing_factor
-        self.mode = mode or 'max'  # For backward compatibility
+        self.mode = mode or "max"  # For backward compatibility
 
         # Additional attributes for backward compatibility with tests
         self.best_value: Optional[float] = None
@@ -190,9 +190,7 @@ class PlateauDetector:
                         )
                     },
                     "center": {
-                        param_col: params[
-                            plateau_indices[len(plateau_indices) // 2]
-                        ]
+                        param_col: params[plateau_indices[len(plateau_indices) // 2]]
                     },
                     "size": len(plateau_indices),
                     "mean_value": np.mean(values[plateau_indices]),
@@ -344,6 +342,36 @@ class PlateauDetector:
 
         return plateaus
 
+    def update(self, value: float) -> bool:
+        """Update with new value (backward compatibility)."""
+        if self.best_value is None:
+            self.best_value = value
+            self.counter = 0
+            return True  # First value is always an improvement
+        else:
+            # Check if improvement based on mode
+            if self.mode == "max":
+                improved = value > self.best_value + self.min_delta
+            else:
+                improved = value < self.best_value - self.min_delta
+
+            if improved:
+                self.best_value = value
+                self.counter = 0
+            else:
+                self.counter += 1
+
+            return improved
+
+    def plateau_reached(self) -> bool:
+        """Check if plateau reached (backward compatibility)."""
+        return self.counter > self.patience
+
+    def reset(self) -> None:
+        """Reset detector state (backward compatibility)."""
+        self.best_value = None
+        self.counter = 0
+
 
 class CoarseToFineOptimizer:
     """Implements coarse-to-fine grid search with plateau detection."""
@@ -376,7 +404,7 @@ class CoarseToFineOptimizer:
             logger.warning("No valid results from coarse search")
             return OptimizationResult(
                 best_params={},
-                best_score=float('-inf'),
+                best_score=float("-inf"),
                 history=coarse_results,
                 convergence_info=None,
                 stability_score=0.0,
@@ -397,7 +425,11 @@ class CoarseToFineOptimizer:
 
             return OptimizationResult(
                 best_params=best_params,
-                best_score=float(coarse_results.loc[best_idx, "value"].item() if hasattr(coarse_results.loc[best_idx, "value"], 'item') else coarse_results.loc[best_idx, "value"]),
+                best_score=float(
+                    coarse_results.loc[best_idx, "value"].item()
+                    if hasattr(coarse_results.loc[best_idx, "value"], "item")
+                    else coarse_results.loc[best_idx, "value"]
+                ),
                 history=coarse_results,
                 convergence_info=None,
                 stability_score=0.0,
@@ -459,6 +491,7 @@ class CoarseToFineOptimizer:
 
         if n_jobs == -1:
             import os
+
             n_jobs = os.cpu_count() or 1  # Ensure n_jobs is always int
 
         if n_jobs == 1:
@@ -477,7 +510,9 @@ class CoarseToFineOptimizer:
             with ProcessPoolExecutor(max_workers=n_jobs) as executor:
                 # Submit all tasks
                 future_to_params = {
-                    executor.submit(objective_func, dict(zip(param_names, combo))): combo
+                    executor.submit(
+                        objective_func, dict(zip(param_names, combo))
+                    ): combo
                     for combo in all_combinations
                 }
 
@@ -548,7 +583,7 @@ class BayesianOptimizer:
         # Store backward compatibility attributes
         self.param_space = param_space
         self.n_initial_points = n_initial_points or 5
-        self.acq_func = acq_func or 'ei'
+        self.acq_func = acq_func or "ei"
 
     def optimize(
         self,
@@ -565,36 +600,39 @@ class BayesianOptimizer:
             objective_func = objective_builder
             # Convert ParameterSpace to dict format for Optuna
             param_space_dict = {}
-            if hasattr(self.param_space, 'parameters'):
+            if hasattr(self.param_space, "parameters"):
                 for name, spec in self.param_space.parameters.items():
-                    if spec['type'] == 'continuous':
+                    if spec["type"] == "continuous":
                         param_space_dict[name] = {
-                            'type': 'float',
-                            'low': spec['min'],
-                            'high': spec['max'],
-                            'log': spec.get('distribution') == 'log'
+                            "type": "float",
+                            "low": spec["min"],
+                            "high": spec["max"],
+                            "log": spec.get("distribution") == "log",
                         }
-                    elif spec['type'] == 'discrete':
+                    elif spec["type"] == "discrete":
                         param_space_dict[name] = {
-                            'type': 'int',
-                            'low': min(spec['values']),
-                            'high': max(spec['values'])
+                            "type": "int",
+                            "low": min(spec["values"]),
+                            "high": max(spec["values"]),
                         }
                     else:  # categorical
                         param_space_dict[name] = {
-                            'type': 'categorical',
-                            'choices': spec['values']
+                            "type": "categorical",
+                            "choices": spec["values"],
                         }
             param_space = param_space_dict
 
             # Wrap the objective function to match new API
             def wrapped_objective_builder(params, trial):
                 return objective_func(params)
+
             objective_builder = wrapped_objective_builder
 
         # Ensure param_space is not None or empty
         if not param_space:
-            raise ValueError(f"No parameter space provided for optimization. self.param_space={self.param_space}")
+            raise ValueError(
+                f"No parameter space provided for optimization. self.param_space={self.param_space}"
+            )
 
         # Create objective function that works with Optuna
         def optuna_objective(trial: optuna.Trial) -> float:
@@ -687,7 +725,9 @@ class BayesianOptimizer:
             convergence_info=None,
             stability_score=stability_score,
             convergence_history=(
-                [float(t.value) for t in study.trials if t.value is not None] if not multi_objective else None
+                [float(t.value) for t in study.trials if t.value is not None]
+                if not multi_objective
+                else None
             ),
         )
 
@@ -748,8 +788,8 @@ class EnsembleOptimizer:
         # Handle backward compatibility
         if optimizers is not None:
             self.optimizers = optimizers
-            self.voting = voting or 'soft'
-            self.weights = weights or [1.0/len(optimizers) for _ in optimizers]
+            self.voting = voting or "soft"
+            self.weights = weights or [1.0 / len(optimizers) for _ in optimizers]
             self.n_ensemble = n_ensemble
             self.diversity_weight = diversity_weight
         else:
@@ -860,12 +900,14 @@ class EnsembleOptimizer:
             results.append(result)
 
         # Combine results based on voting method
-        if self.voting == 'soft':
+        if self.voting == "soft":
             # Weighted average of scores
             best_score = sum(r.best_score * w for r, w in zip(results, self.weights))
             # Use best params from optimizer with highest weighted score
-            best_idx = max(range(len(results)),
-                         key=lambda i: results[i].best_score * self.weights[i])
+            best_idx = max(
+                range(len(results)),
+                key=lambda i: results[i].best_score * self.weights[i],
+            )
             best_params = results[best_idx].best_params
         else:
             # Hard voting - use params from best optimizer
@@ -881,7 +923,7 @@ class EnsembleOptimizer:
             best_score=best_score,
             history=all_history,
             convergence_info=None,
-            metadata={'ensemble_scores': [r.best_score for r in results]}
+            metadata={"ensemble_scores": [r.best_score for r in results]},
         )
 
 
@@ -986,9 +1028,9 @@ class OptimizationDataPipeline:
             test_ratio: Fraction of data for testing
             purge_days: Number of days to purge between splits to avoid lookahead bias
         """
-        assert (
-            abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-6
-        ), "Ratios must sum to 1"
+        assert abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-6, (
+            "Ratios must sum to 1"
+        )
 
         self.train_ratio = train_ratio
         self.val_ratio = val_ratio
@@ -1116,22 +1158,25 @@ class OptimizationDataPipeline:
 # Placeholder classes for test compatibility
 class RandomSearchOptimizer:
     """Random search optimizer placeholder."""
+
     def __init__(self, param_space, n_iterations=100, n_jobs=1, random_state=None):
         self.param_space = param_space
         self.n_iterations = n_iterations
         self.n_jobs = n_jobs
         self.random_state = random_state
         self.best_params = None
-        self.best_score = float('-inf')
+        self.best_score = float("-inf")
 
     def optimize(self, objective):
         """Run optimization."""
         # Simple random search implementation
         history = []
         for _ in range(self.n_iterations):
-            params = self.param_space.sample() if hasattr(self.param_space, 'sample') else {}
+            params = (
+                self.param_space.sample() if hasattr(self.param_space, "sample") else {}
+            )
             score = objective(params)
-            history.append({'params': params, 'value': score})
+            history.append({"params": params, "value": score})
             if score > self.best_score:
                 self.best_score = score
                 self.best_params = params
@@ -1143,14 +1188,21 @@ class RandomSearchOptimizer:
             best_params=self.best_params or {},
             best_score=self.best_score,
             history=history_df,
-            convergence_info={'iterations': self.n_iterations}
+            convergence_info={"iterations": self.n_iterations},
         )
 
 
 class GeneticOptimizer:
     """Genetic optimizer placeholder."""
-    def __init__(self, param_space, population_size=50, n_generations=100,
-                 mutation_rate=0.1, crossover_rate=0.8):
+
+    def __init__(
+        self,
+        param_space,
+        population_size=50,
+        n_generations=100,
+        mutation_rate=0.1,
+        crossover_rate=0.8,
+    ):
         self.param_space = param_space
         self.population_size = population_size
         self.n_generations = n_generations
@@ -1159,13 +1211,15 @@ class GeneticOptimizer:
 
     def _create_population(self):
         """Create initial population."""
-        return [self.param_space.sample() if hasattr(self.param_space, 'sample') else {}
-                for _ in range(self.population_size)]
+        return [
+            self.param_space.sample() if hasattr(self.param_space, "sample") else {}
+            for _ in range(self.population_size)
+        ]
 
     def _selection(self, population, k):
         """Select k individuals using tournament selection."""
         # Sort by fitness (descending)
-        sorted_pop = sorted(population, key=lambda x: x.get('fitness', 0), reverse=True)
+        sorted_pop = sorted(population, key=lambda x: x.get("fitness", 0), reverse=True)
         return sorted_pop[:k]
 
     def _crossover(self, parent1, parent2):
@@ -1173,8 +1227,16 @@ class GeneticOptimizer:
         import random
 
         # Handle both dict and individual parameters
-        p1_params = parent1.get('params', parent1) if isinstance(parent1, dict) and 'params' in parent1 else parent1
-        p2_params = parent2.get('params', parent2) if isinstance(parent2, dict) and 'params' in parent2 else parent2
+        p1_params = (
+            parent1.get("params", parent1)
+            if isinstance(parent1, dict) and "params" in parent1
+            else parent1
+        )
+        p2_params = (
+            parent2.get("params", parent2)
+            if isinstance(parent2, dict) and "params" in parent2
+            else parent2
+        )
 
         child1 = {}
         child2 = {}
@@ -1213,28 +1275,31 @@ class GeneticOptimizer:
         import random
 
         # Handle both dict and individual parameters
-        params = individual.get('params', individual).copy()
+        params = individual.get("params", individual).copy()
         mutated = params.copy()
 
         for key, value in params.items():
             if random.random() < self.mutation_rate:
                 # Get parameter info from param_space
-                if hasattr(self.param_space, 'parameters'):
+                if hasattr(self.param_space, "parameters"):
                     param_info = self.param_space.parameters.get(key)
                     if param_info:
-                        if param_info['type'] == 'continuous':
+                        if param_info["type"] == "continuous":
                             # Add gaussian noise
-                            range_val = param_info['max'] - param_info['min']
+                            range_val = param_info["max"] - param_info["min"]
                             noise = random.gauss(0, range_val * 0.1)
-                            mutated[key] = max(param_info['min'],
-                                             min(param_info['max'], value + noise))
-                        elif param_info['type'] in ['discrete', 'categorical']:
+                            mutated[key] = max(
+                                param_info["min"], min(param_info["max"], value + noise)
+                            )
+                        elif param_info["type"] in ["discrete", "categorical"]:
                             # Random choice from values
-                            mutated[key] = random.choice(param_info['values'])
+                            mutated[key] = random.choice(param_info["values"])
                     else:
                         # Generic mutation
                         if isinstance(value, (int, float)):
-                            mutated[key] = value + random.gauss(0, abs(value) * 0.1 + 0.1)
+                            mutated[key] = value + random.gauss(
+                                0, abs(value) * 0.1 + 0.1
+                            )
                         elif isinstance(value, list):
                             mutated[key] = random.choice(value)
                 else:
@@ -1249,7 +1314,7 @@ class GeneticOptimizer:
         import random
 
         best_params = {}
-        best_score = float('-inf')
+        best_score = float("-inf")
         history = []
         convergence_history = []
 
@@ -1259,13 +1324,13 @@ class GeneticOptimizer:
         for gen in range(self.n_generations):
             # Evaluate fitness for each individual
             for i, individual in enumerate(population):
-                if 'fitness' not in individual or gen == 0:
+                if "fitness" not in individual or gen == 0:
                     # Evaluate objective
                     score = objective(individual)
-                    population[i] = {'params': individual, 'fitness': score}
+                    population[i] = {"params": individual, "fitness": score}
 
                     # Track history
-                    history.append({'generation': gen, **individual, 'value': score})
+                    history.append({"generation": gen, **individual, "value": score})
 
                     # Update best
                     if score > best_score:
@@ -1273,7 +1338,7 @@ class GeneticOptimizer:
                         best_params = individual.copy()
 
             # Track convergence
-            gen_scores = [ind['fitness'] for ind in population]
+            gen_scores = [ind["fitness"] for ind in population]
             convergence_history.append(max(gen_scores))
 
             # Selection
@@ -1284,8 +1349,8 @@ class GeneticOptimizer:
 
             # Elitism - keep best individual
             if population:
-                best_individual = max(population, key=lambda x: x['fitness'])
-                new_population.append(best_individual['params'])
+                best_individual = max(population, key=lambda x: x["fitness"])
+                new_population.append(best_individual["params"])
 
             # Crossover and mutation
             while len(new_population) < self.population_size:
@@ -1297,8 +1362,8 @@ class GeneticOptimizer:
                 if random.random() < self.crossover_rate:
                     child1, child2 = self._crossover(parent1, parent2)
                 else:
-                    child1 = parent1.get('params', parent1).copy()
-                    child2 = parent2.get('params', parent2).copy()
+                    child1 = parent1.get("params", parent1).copy()
+                    child2 = parent2.get("params", parent2).copy()
 
                 # Mutation
                 child1 = self._mutate(child1)
@@ -1307,7 +1372,7 @@ class GeneticOptimizer:
                 new_population.extend([child1, child2])
 
             # Trim to population size
-            population = new_population[:self.population_size]
+            population = new_population[: self.population_size]
 
         # Convert history list to DataFrame for consistency
         history_df = pd.DataFrame(history)
@@ -1316,15 +1381,23 @@ class GeneticOptimizer:
             best_params=best_params,
             best_score=best_score,
             history=history_df,
-            convergence_info={'generations': self.n_generations},
-            convergence_history=convergence_history
+            convergence_info={"generations": self.n_generations},
+            convergence_history=convergence_history,
         )
 
 
 class BacktestObjective:
     """Backtest objective function."""
-    def __init__(self, backtest_engine, strategy_class, data, metric,
-                 weights=None, constraints=None):
+
+    def __init__(
+        self,
+        backtest_engine,
+        strategy_class,
+        data,
+        metric,
+        weights=None,
+        constraints=None,
+    ):
         self.backtest_engine = backtest_engine
         self.strategy_class = strategy_class
         self.data = data
@@ -1334,7 +1407,9 @@ class BacktestObjective:
 
     def __call__(self, params):
         """Evaluate parameters."""
-        result = self.backtest_engine.run_backtest(self.strategy_class, self.data, params)
+        result = self.backtest_engine.run_backtest(
+            self.strategy_class, self.data, params
+        )
 
         if isinstance(self.metric, list):
             # Multi-objective
@@ -1360,46 +1435,50 @@ class BacktestObjective:
 
 class ParameterSpace:
     """Parameter space definition."""
+
     def __init__(self, params):
         self.parameters = {}
         for name, spec in params.items():
             if isinstance(spec, tuple) and len(spec) == 3:
                 # Continuous parameter
                 self.parameters[name] = {
-                    'type': 'continuous',
-                    'min': spec[0],
-                    'max': spec[1],
-                    'distribution': spec[2]
+                    "type": "continuous",
+                    "min": spec[0],
+                    "max": spec[1],
+                    "distribution": spec[2],
                 }
             elif isinstance(spec, list):
                 # Discrete/categorical parameter
                 self.parameters[name] = {
-                    'type': 'discrete' if all(isinstance(x, (int, float)) for x in spec) else 'categorical',
-                    'values': spec
+                    "type": "discrete"
+                    if all(isinstance(x, (int, float)) for x in spec)
+                    else "categorical",
+                    "values": spec,
                 }
 
     def sample(self):
         """Sample from parameter space."""
         import random
+
         sample = {}
         for name, spec in self.parameters.items():
-            if spec['type'] == 'continuous':
-                if spec['distribution'] == 'log':
-                    log_min = np.log(spec['min'])
-                    log_max = np.log(spec['max'])
+            if spec["type"] == "continuous":
+                if spec["distribution"] == "log":
+                    log_min = np.log(spec["min"])
+                    log_max = np.log(spec["max"])
                     sample[name] = np.exp(random.uniform(log_min, log_max))
                 else:
-                    sample[name] = random.uniform(spec['min'], spec['max'])
+                    sample[name] = random.uniform(spec["min"], spec["max"])
             else:
-                sample[name] = random.choice(spec['values'])
+                sample[name] = random.choice(spec["values"])
         return sample
 
     def get_bounds(self):
         """Get parameter bounds."""
         bounds = {}
         for name, spec in self.parameters.items():
-            if spec['type'] == 'continuous':
-                bounds[name] = (spec['min'], spec['max'])
+            if spec["type"] == "continuous":
+                bounds[name] = (spec["min"], spec["max"])
         return bounds
 
 

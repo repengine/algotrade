@@ -186,10 +186,16 @@ class TestIBKRWebSocketReconnection:
         # Mock reconnection handler
         ws_client._handle_reconnection = AsyncMock()
 
-        # Run heartbeat loop once
+        # Run heartbeat loop once with proper cleanup
         heartbeat_task = asyncio.create_task(ws_client._heartbeat_loop())
-        await asyncio.sleep(0.1)
-        heartbeat_task.cancel()
+        try:
+            await asyncio.sleep(0.1)
+        finally:
+            heartbeat_task.cancel()
+            try:
+                await heartbeat_task
+            except asyncio.CancelledError:
+                pass
 
         # Verify reconnection was triggered
         ws_client._handle_reconnection.assert_called_once()

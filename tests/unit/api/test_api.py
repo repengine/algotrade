@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from unittest.mock import AsyncMock, Mock, patch
+from datetime import datetime
 
 import pytest
 from api.app import create_app
@@ -150,6 +151,22 @@ class TestAPIEndpoints:
         """Create mock trading engine."""
         engine = Mock()
         engine.is_running = True
+        engine.status = 'running'  # Add status attribute
+        
+        # Create mock strategies with required attributes
+        strategy1 = Mock()
+        strategy1.active = True
+        strategy1.__class__.__name__ = 'TestStrategy1'
+        
+        strategy2 = Mock()
+        strategy2.active = False
+        strategy2.__class__.__name__ = 'TestStrategy2'
+        
+        engine.strategies = [strategy1, strategy2]  # Real list, not Mock
+        engine.symbols = ['AAPL', 'GOOGL', 'MSFT']  # Add symbols list
+        engine.circuit_breaker_active = False
+        engine.uptime_seconds = 3600
+        engine.is_market_open = Mock(return_value=True)
         engine.get_status = Mock(return_value={
             'status': 'running',
             'positions': 5,
@@ -161,6 +178,24 @@ class TestAPIEndpoints:
     def mock_portfolio_engine(self):
         """Create mock portfolio engine."""
         portfolio = Mock()
+        
+        # Create a mock position that matches what the endpoint expects
+        mock_position = Mock()
+        mock_position.position_id = 'POS123'
+        mock_position.symbol = 'AAPL'
+        mock_position.quantity = 100
+        mock_position.entry_price = 150.0
+        mock_position.current_price = 155.0
+        mock_position.market_value = 15500.0
+        mock_position.pnl = 500.0
+        mock_position.pnl_percentage = 3.33
+        mock_position.strategy_id = 'test_strategy'
+        mock_position.direction = 'LONG'
+        mock_position.opened_at = '2025-01-01T09:30:00'
+        mock_position.updated_at = datetime.utcnow()  # Add datetime field
+        
+        portfolio.positions = {'AAPL': mock_position}  # Dict of positions
+        
         portfolio.get_portfolio_value = Mock(return_value=150000)
         portfolio.get_positions_summary = Mock(return_value=[
             {
@@ -186,24 +221,47 @@ class TestAPIEndpoints:
         assert data['status'] == 'healthy'
         assert 'timestamp' in data
 
-    def test_system_status(self, client, mock_trading_engine):
+    def test_system_status(self, mock_trading_engine):
         """Test system status endpoint."""
-        with patch("api.app.get_trading_engine", return_value=mock_trading_engine):
+        from api.dependencies import get_trading_engine
+        from api.app import create_app
+        
+        app = create_app()
+        
+        # Override the dependency
+        app.dependency_overrides[get_trading_engine] = lambda: mock_trading_engine
+        
+        with TestClient(app) as client:
             response = client.get("/api/v1/status")
 
             assert response.status_code == 200
             data = response.json()
-            assert data['trading_engine']['status'] == 'running'
+            print(f"Response data: {data}")  # Debug
+            assert data['status'] == 'running'  # Status is at top level, not under trading_engine
+        
+        # Clean up
+        app.dependency_overrides.clear()
 
-    def test_get_positions(self, client, mock_portfolio_engine):
+    def test_get_positions(self, mock_trading_engine, mock_portfolio_engine):
         """Test get positions endpoint."""
-        with patch("api.app.get_portfolio_engine", return_value=mock_portfolio_engine):
+        from api.dependencies import get_trading_engine
+        from api.app import create_app
+        
+        # Set up mock engine with portfolio
+        mock_trading_engine.portfolio = mock_portfolio_engine
+        
+        app = create_app()
+        app.dependency_overrides[get_trading_engine] = lambda: mock_trading_engine
+        
+        with TestClient(app) as client:
             response = client.get("/api/v1/positions")
 
             assert response.status_code == 200
             positions = response.json()
             assert len(positions) == 1
             assert positions[0]['symbol'] == 'AAPL'
+        
+        app.dependency_overrides.clear()
 
     def test_place_order(self, client, mock_trading_engine):
         """Test place order endpoint."""
@@ -219,7 +277,7 @@ class TestAPIEndpoints:
             'order_type': 'MARKET'
         }
 
-        with patch("api.app.get_trading_engine", return_value=mock_trading_engine):
+        with patch("api.dependencies.get_trading_engine", return_value=mock_trading_engine):
             response = client.post("/api/v1/orders", json=order_data)
 
             assert response.status_code == 200
@@ -246,7 +304,7 @@ class TestAPIEndpoints:
             'status': 'CANCELLED'
         })
 
-        with patch("api.app.get_trading_engine", return_value=mock_trading_engine):
+        with patch("api.dependencies.get_trading_engine", return_value=mock_trading_engine):
             response = client.delete("/api/v1/orders/ORD123")
 
             assert response.status_code == 200
@@ -268,7 +326,7 @@ class TestAPIEndpoints:
             }
         ])
 
-        with patch("api.app.get_trading_engine", return_value=mock_trading_engine):
+        with patch("api.dependencies.get_trading_engine", return_value=mock_trading_engine):
             response = client.get("/api/v1/orders")
 
             assert response.status_code == 200
@@ -277,7 +335,7 @@ class TestAPIEndpoints:
 
     def test_get_performance(self, client, mock_portfolio_engine):
         """Test performance metrics endpoint."""
-        with patch("api.app.get_portfolio_engine", return_value=mock_portfolio_engine):
+        with patch("api.dependencies.get_portfolio_engine", return_value=mock_portfolio_engine):
             response = client.get("/api/v1/performance")
 
             assert response.status_code == 200
@@ -306,7 +364,7 @@ class TestAPIEndpoints:
             }
         ])
 
-        with patch("api.app.get_portfolio_engine", return_value=mock_portfolio_engine):
+        with patch("api.dependencies.get_portfolio_engine", return_value=mock_portfolio_engine):
             response = client.get("/api/v1/trades")
 
             assert response.status_code == 200
@@ -323,7 +381,7 @@ class TestAPIEndpoints:
             'performance': {}
         })
 
-        with patch("api.app.get_portfolio_engine", return_value=mock_portfolio_engine):
+        with patch("api.dependencies.get_portfolio_engine", return_value=mock_portfolio_engine):
             response = client.get("/api/v1/export?format=json")
 
             assert response.status_code == 200
@@ -336,7 +394,7 @@ class TestAPIEndpoints:
         mock_trading_engine.enable_strategy = Mock()
         mock_trading_engine.disable_strategy = Mock()
 
-        with patch("api.app.get_trading_engine", return_value=mock_trading_engine):
+        with patch("api.dependencies.get_trading_engine", return_value=mock_trading_engine):
             # Enable strategy
             response = client.post("/api/v1/strategies/momentum/enable")
             assert response.status_code == 200
@@ -355,7 +413,7 @@ class TestAPIEndpoints:
 
         mock_trading_engine.update_risk_limits = Mock()
 
-        with patch("api.app.get_trading_engine", return_value=mock_trading_engine):
+        with patch("api.dependencies.get_trading_engine", return_value=mock_trading_engine):
             # Get limits
             response = client.get("/api/v1/risk/limits")
             assert response.status_code == 200
