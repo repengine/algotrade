@@ -8,7 +8,6 @@ from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
-
 from strategies.base import Signal
 
 logger = logging.getLogger(__name__)

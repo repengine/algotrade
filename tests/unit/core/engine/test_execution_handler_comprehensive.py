@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-import pytest_asyncio
 from core.engine.execution_handler import (
     ExecutionAlgorithm,
     ExecutionHandler,
@@ -18,7 +17,6 @@ from core.engine.execution_handler import (
     ExecutionPlan,
 )
 from core.engine.order_manager import Order, OrderSide, OrderStatus, OrderType
-
 
 # Removed run_async helper - using pytest-asyncio instead
 
@@ -183,7 +181,8 @@ class TestExecutionHandler:
         assert handler.max_retries == 3
         assert handler.retry_delay == 1.0
 
-    def test_execute_order_market_algorithm(self, handler, mock_order_manager):
+    @pytest.mark.asyncio
+    async def test_execute_order_market_algorithm(self, handler, mock_order_manager):
         """Test market order execution."""
         order = Order(
             order_id="test_order",
@@ -195,7 +194,7 @@ class TestExecutionHandler:
 
         # Mock the execution to complete immediately
         with patch.object(handler, '_execute_market_order', new_callable=AsyncMock):
-            plan = run_async(handler.execute_order(order))
+            plan = await handler.execute_order(order)
 
             assert isinstance(plan, ExecutionPlan)
             assert plan.parent_order == order
@@ -203,7 +202,8 @@ class TestExecutionHandler:
             assert "test_order" in handler.execution_plans
             assert "test_order" in handler.active_executions
 
-    def test_execute_order_twap_algorithm(self, handler, mock_order_manager):
+    @pytest.mark.asyncio
+    async def test_execute_order_twap_algorithm(self, handler, mock_order_manager):
         """Test TWAP execution."""
         order = Order(
             order_id="test_order",
@@ -223,14 +223,15 @@ class TestExecutionHandler:
         child_order = Order(order_id="child_1", symbol="AAPL", quantity=100)
         mock_order_manager.create_order.return_value = child_order
 
-        plan = run_async(handler.execute_order(order, params))
+        plan = await handler.execute_order(order, params)
 
         assert plan.execution_params.algorithm == ExecutionAlgorithm.TWAP
 
         # Cancel execution to stop the task
-        run_async(handler.cancel_execution("test_order"))
+        await handler.cancel_execution("test_order")
 
-    def test_execute_order_vwap_algorithm(self, handler, mock_order_manager):
+    @pytest.mark.asyncio
+    async def test_execute_order_vwap_algorithm(self, handler, mock_order_manager):
         """Test VWAP execution."""
         order = Order(
             order_id="test_order",
@@ -252,14 +253,15 @@ class TestExecutionHandler:
             child_order = Order(order_id="child_1", symbol="AAPL", quantity=200)
             mock_order_manager.create_order.return_value = child_order
 
-            plan = run_async(handler.execute_order(order, params))
+            plan = await handler.execute_order(order, params)
 
             assert plan.execution_params.algorithm == ExecutionAlgorithm.VWAP
 
             # Cancel execution
-            run_async(handler.cancel_execution("test_order"))
+            await handler.cancel_execution("test_order")
 
-    def test_execute_order_vwap_no_market_data(self, handler):
+    @pytest.mark.asyncio
+    async def test_execute_order_vwap_no_market_data(self, handler):
         """Test VWAP execution without market data provider."""
         handler.market_data_provider = None
 
@@ -273,15 +275,16 @@ class TestExecutionHandler:
 
         # Should fall back to TWAP
         with patch.object(handler, '_execute_twap', new_callable=AsyncMock):
-            run_async(handler.execute_order(order, params))
+            await handler.execute_order(order, params)
 
             # Wait for async task to start
-            run_async(asyncio.sleep(0.1))
+            await asyncio.sleep(0.1)
 
             # Cancel execution
-            run_async(handler.cancel_execution("test_order"))
+            await handler.cancel_execution("test_order")
 
-    def test_execute_order_iceberg_algorithm(self, handler, mock_order_manager):
+    @pytest.mark.asyncio
+    async def test_execute_order_iceberg_algorithm(self, handler, mock_order_manager):
         """Test Iceberg execution."""
         order = Order(
             order_id="test_order",
@@ -313,14 +316,15 @@ class TestExecutionHandler:
         mock_order_manager.create_order.side_effect = child_orders
 
         with patch.object(handler, '_wait_for_order_completion', new_callable=AsyncMock):
-            plan = run_async(handler.execute_order(order, params))
+            plan = await handler.execute_order(order, params)
 
             assert plan.execution_params.algorithm == ExecutionAlgorithm.ICEBERG
 
             # Cancel execution
-            run_async(handler.cancel_execution("test_order"))
+            await handler.cancel_execution("test_order")
 
-    def test_execute_order_pov_algorithm(self, handler, mock_order_manager):
+    @pytest.mark.asyncio
+    async def test_execute_order_pov_algorithm(self, handler, mock_order_manager):
         """Test POV execution."""
         order = Order(
             order_id="test_order",
@@ -348,14 +352,15 @@ class TestExecutionHandler:
             mock_order_manager.create_order.return_value = child_order
 
             with patch.object(handler, '_wait_for_order_completion', new_callable=AsyncMock):
-                plan = run_async(handler.execute_order(order, params))
+                plan = await handler.execute_order(order, params)
 
                 assert plan.execution_params.algorithm == ExecutionAlgorithm.POV
 
                 # Cancel execution
-                run_async(handler.cancel_execution("test_order"))
+                await handler.cancel_execution("test_order")
 
-    def test_execute_order_pov_no_market_data(self, handler):
+    @pytest.mark.asyncio
+    async def test_execute_order_pov_no_market_data(self, handler):
         """Test POV execution without market data provider."""
         handler.market_data_provider = None
 
@@ -369,15 +374,16 @@ class TestExecutionHandler:
 
         # Should fall back to TWAP
         with patch.object(handler, '_execute_twap', new_callable=AsyncMock):
-            run_async(handler.execute_order(order, params))
+            await handler.execute_order(order, params)
 
             # Wait for async task to start
-            run_async(asyncio.sleep(0.1))
+            await asyncio.sleep(0.1)
 
             # Cancel execution
-            run_async(handler.cancel_execution("test_order"))
+            await handler.cancel_execution("test_order")
 
-    def test_execute_order_smart_algorithm(self, handler):
+    @pytest.mark.asyncio
+    async def test_execute_order_smart_algorithm(self, handler):
         """Test SMART execution."""
         order = Order(
             order_id="test_order",
@@ -389,17 +395,18 @@ class TestExecutionHandler:
 
         # Should fall back to TWAP for now
         with patch.object(handler, '_execute_twap', new_callable=AsyncMock):
-            plan = run_async(handler.execute_order(order, params))
+            plan = await handler.execute_order(order, params)
 
             assert plan.execution_params.algorithm == ExecutionAlgorithm.SMART
 
             # Wait for async task to start
-            run_async(asyncio.sleep(0.1))
+            await asyncio.sleep(0.1)
 
             # Cancel execution
-            run_async(handler.cancel_execution("test_order"))
+            await handler.cancel_execution("test_order")
 
-    def test_execute_order_legacy_api(self, legacy_handler, mock_executor):
+    @pytest.mark.asyncio
+    async def test_execute_order_legacy_api(self, legacy_handler, mock_executor):
         """Test legacy executor-based execution."""
         order = {
             'order_id': '123',
@@ -409,13 +416,14 @@ class TestExecutionHandler:
             'order_type': 'MARKET'
         }
 
-        result = run_async(legacy_handler.execute_order(order))
+        result = await legacy_handler.execute_order(order)
 
         assert result['order_id'] == '123'
         assert result['status'] == 'FILLED'
         mock_executor.place_order.assert_called_once_with(order)
 
-    def test_cancel_execution_success(self, handler, mock_order_manager):
+    @pytest.mark.asyncio
+    async def test_cancel_execution_success(self, handler, mock_order_manager):
         """Test successful execution cancellation."""
         order = Order(
             order_id="test_order",
@@ -424,7 +432,7 @@ class TestExecutionHandler:
         )
 
         # Start execution
-        plan = run_async(handler.execute_order(order))
+        plan = await handler.execute_order(order)
 
         # Add some child orders to the plan
         child1 = Order(order_id="child_1", status=OrderStatus.SUBMITTED)
@@ -432,7 +440,7 @@ class TestExecutionHandler:
         plan.child_orders = [child1, child2]
 
         # Cancel execution
-        success = run_async(handler.cancel_execution("test_order"))
+        success = await handler.cancel_execution("test_order")
 
         assert success is True
         assert plan.status == "cancelled"
@@ -442,46 +450,51 @@ class TestExecutionHandler:
         mock_order_manager.cancel_order.assert_any_call("child_1")
         mock_order_manager.cancel_order.assert_any_call("child_2")
 
-    def test_cancel_execution_not_found(self, handler):
+    @pytest.mark.asyncio
+    async def test_cancel_execution_not_found(self, handler):
         """Test cancelling non-existent execution."""
-        success = run_async(handler.cancel_execution("non_existent"))
+        success = await handler.cancel_execution("non_existent")
         assert success is False
 
-    def test_execute_market_order_success(self, handler, mock_order_manager):
+    @pytest.mark.asyncio
+    async def test_execute_market_order_success(self, handler, mock_order_manager):
         """Test successful market order execution."""
         order = Order(order_id="test", symbol="AAPL", quantity=100)
         plan = ExecutionPlan(parent_order=order)
 
-        run_async(handler._execute_market_order(plan))
+        await handler._execute_market_order(plan)
 
         assert plan.status == "completed"
         assert len(plan.child_orders) == 1
         assert plan.child_orders[0] == order
         mock_order_manager.submit_order.assert_called_once_with(order)
 
-    def test_execute_market_order_failure(self, handler, mock_order_manager):
+    @pytest.mark.asyncio
+    async def test_execute_market_order_failure(self, handler, mock_order_manager):
         """Test failed market order execution."""
         mock_order_manager.submit_order.return_value = False
 
         order = Order(order_id="test", symbol="AAPL", quantity=100)
         plan = ExecutionPlan(parent_order=order)
 
-        run_async(handler._execute_market_order(plan))
+        await handler._execute_market_order(plan)
 
         assert plan.status == "failed"
 
-    def test_execute_market_order_exception(self, handler, mock_order_manager):
+    @pytest.mark.asyncio
+    async def test_execute_market_order_exception(self, handler, mock_order_manager):
         """Test market order execution with exception."""
         mock_order_manager.submit_order.side_effect = Exception("Submit error")
 
         order = Order(order_id="test", symbol="AAPL", quantity=100)
         plan = ExecutionPlan(parent_order=order)
 
-        run_async(handler._execute_market_order(plan))
+        await handler._execute_market_order(plan)
 
         assert plan.status == "error"
 
-    def test_execute_twap_complete(self, handler, mock_order_manager):
+    @pytest.mark.asyncio
+    async def test_execute_twap_complete(self, handler, mock_order_manager):
         """Test complete TWAP execution."""
         order = Order(order_id="test", symbol="AAPL", quantity=100)
         params = ExecutionParams(
@@ -497,13 +510,14 @@ class TestExecutionHandler:
 
         # Use very short interval for testing
         with patch('asyncio.sleep', new_callable=AsyncMock):
-            run_async(handler._execute_twap(plan))
+            await handler._execute_twap(plan)
 
         assert plan.status == "completed"
         assert plan.completion_time is not None
         assert plan.total_executed == 100.0
 
-    def test_execute_twap_cancelled(self, handler, mock_order_manager):
+    @pytest.mark.asyncio
+    async def test_execute_twap_cancelled(self, handler, mock_order_manager):
         """Test cancelled TWAP execution."""
         order = Order(order_id="test", symbol="AAPL", quantity=1000)
         plan = ExecutionPlan(parent_order=order)
@@ -512,24 +526,26 @@ class TestExecutionHandler:
         plan.status = "cancelled"
 
         with pytest.raises(asyncio.CancelledError):
-            run_async(handler._execute_twap(plan))
+            await handler._execute_twap(plan)
 
         assert plan.status == "cancelled"
 
-    def test_execute_twap_error(self, handler, mock_order_manager):
+    @pytest.mark.asyncio
+    async def test_execute_twap_error(self, handler, mock_order_manager):
         """Test TWAP execution with error."""
         mock_order_manager.create_order.side_effect = Exception("Create error")
 
         order = Order(order_id="test", symbol="AAPL", quantity=100)
         plan = ExecutionPlan(parent_order=order)
 
-        run_async(handler._execute_twap(plan))
+        await handler._execute_twap(plan)
 
         assert plan.status == "error"
 
-    def test_get_volume_profile(self, handler):
+    @pytest.mark.asyncio
+    async def test_get_volume_profile(self, handler):
         """Test volume profile retrieval."""
-        profile = run_async(handler._get_volume_profile("AAPL"))
+        profile = await handler._get_volume_profile("AAPL")
 
         assert isinstance(profile, list)
         assert len(profile) == 60
@@ -553,12 +569,14 @@ class TestExecutionHandler:
         # Third slot: 600 * (3000/6000) = 300
         assert schedule[2][1] == 300.0
 
-    def test_get_market_volume(self, handler):
+    @pytest.mark.asyncio
+    async def test_get_market_volume(self, handler):
         """Test market volume retrieval."""
-        volume = run_async(handler._get_market_volume("AAPL", 60))
+        volume = await handler._get_market_volume("AAPL", 60)
         assert volume == 10000.0
 
-    def test_wait_for_order_completion(self, handler):
+    @pytest.mark.asyncio
+    async def test_wait_for_order_completion(self, handler):
         """Test waiting for order completion."""
         order = Order(order_id="test", status=OrderStatus.SUBMITTED)
 
@@ -568,27 +586,25 @@ class TestExecutionHandler:
             order.status = OrderStatus.FILLED
 
         # Run fill task and wait concurrently
-        loop = asyncio.new_event_loop()
-        try:
-            loop.run_until_complete(asyncio.gather(
-                fill_order(),
-                handler._wait_for_order_completion(order, timeout=1.0)
-            ))
-        finally:
-            loop.close()
+        await asyncio.gather(
+            fill_order(),
+            handler._wait_for_order_completion(order, timeout=1.0)
+        )
 
         assert order.status == OrderStatus.FILLED
 
-    def test_execute_order_legacy_success(self, legacy_handler, mock_executor):
+    @pytest.mark.asyncio
+    async def test_execute_order_legacy_success(self, legacy_handler, mock_executor):
         """Test successful legacy order execution."""
         order = {'order_id': '123', 'symbol': 'AAPL', 'quantity': 100}
 
-        result = run_async(legacy_handler._execute_order_legacy(order))
+        result = await legacy_handler._execute_order_legacy(order)
 
         assert result['status'] == 'FILLED'
         mock_executor.place_order.assert_called_once_with(order)
 
-    def test_execute_order_legacy_retry(self, legacy_handler, mock_executor):
+    @pytest.mark.asyncio
+    async def test_execute_order_legacy_retry(self, legacy_handler, mock_executor):
         """Test legacy order execution with retry."""
         mock_executor.place_order.side_effect = [
             Exception("Connection error"),
@@ -599,12 +615,13 @@ class TestExecutionHandler:
         order = {'order_id': '123', 'symbol': 'AAPL', 'quantity': 100}
 
         with patch('asyncio.sleep', new_callable=AsyncMock):
-            result = run_async(legacy_handler._execute_order_legacy(order))
+            result = await legacy_handler._execute_order_legacy(order)
 
         assert result['status'] == 'FILLED'
         assert mock_executor.place_order.call_count == 3
 
-    def test_execute_order_legacy_max_retries(self, legacy_handler, mock_executor):
+    @pytest.mark.asyncio
+    async def test_execute_order_legacy_max_retries(self, legacy_handler, mock_executor):
         """Test legacy order execution exceeding max retries."""
         mock_executor.place_order.side_effect = Exception("Persistent error")
 
@@ -612,11 +629,12 @@ class TestExecutionHandler:
 
         with patch('asyncio.sleep', new_callable=AsyncMock):
             with pytest.raises(Exception, match="Persistent error"):
-                run_async(legacy_handler._execute_order_legacy(order))
+                await legacy_handler._execute_order_legacy(order)
 
         assert mock_executor.place_order.call_count == 3
 
-    def test_execute_with_retry_custom_retries(self, legacy_handler, mock_executor):
+    @pytest.mark.asyncio
+    async def test_execute_with_retry_custom_retries(self, legacy_handler, mock_executor):
         """Test execute_with_retry with custom retry count."""
         mock_executor.place_order.side_effect = [
             Exception("Error 1"),
@@ -626,7 +644,7 @@ class TestExecutionHandler:
         order = {'order_id': '123', 'symbol': 'AAPL', 'quantity': 100}
 
         with patch('asyncio.sleep', new_callable=AsyncMock):
-            result = run_async(legacy_handler.execute_with_retry(order, max_retries=2))
+            result = await legacy_handler.execute_with_retry(order, max_retries=2)
 
         assert result['status'] == 'FILLED'
         assert legacy_handler.max_retries == 3  # Restored to original
@@ -691,7 +709,8 @@ class TestExecutionHandler:
         # (150 - 149.75) / 150 = 0.00167
         assert slippage == pytest.approx(0.00167, rel=0.01)
 
-    def test_smart_route_order(self, legacy_handler, mock_executor):
+    @pytest.mark.asyncio
+    async def test_smart_route_order(self, legacy_handler, mock_executor):
         """Test smart order routing."""
         order = {'order_id': '123', 'symbol': 'AAPL', 'quantity': 100}
         venues = ['NASDAQ', 'NYSE', 'ARCA']
@@ -699,17 +718,18 @@ class TestExecutionHandler:
         # Mock set_venue method
         mock_executor.set_venue = Mock()
 
-        result = run_async(legacy_handler.smart_route_order(order, venues))
+        result = await legacy_handler.smart_route_order(order, venues)
 
         assert result['status'] == 'FILLED'
         mock_executor.set_venue.assert_called_once_with('NASDAQ')
         mock_executor.place_order.assert_called_once_with(order)
 
-    def test_smart_route_order_no_venues(self, legacy_handler, mock_executor):
+    @pytest.mark.asyncio
+    async def test_smart_route_order_no_venues(self, legacy_handler, mock_executor):
         """Test smart order routing without venues."""
         order = {'order_id': '123', 'symbol': 'AAPL', 'quantity': 100}
 
-        result = run_async(legacy_handler.smart_route_order(order, []))
+        result = await legacy_handler.smart_route_order(order, [])
 
         assert result['status'] == 'FILLED'
         mock_executor.place_order.assert_called_once_with(order)

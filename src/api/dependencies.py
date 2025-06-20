@@ -1,6 +1,7 @@
-from typing import Optional, Dict, Any
-from fastapi import Header, HTTPException, Depends
 import asyncio
+from typing import Any, Dict, Optional
+
+from fastapi import Depends, Header, HTTPException
 
 # Global instances - in production these would be properly managed
 _trading_engine = None
@@ -76,7 +77,7 @@ async def require_admin_auth(authorization: Optional[str] = Header(None)):
             detail="Authorization header required",
             headers={"WWW-Authenticate": "Bearer"}
         )
-    
+
     # In production, would validate JWT token or API key
     # For now, just check for a specific token
     if authorization != "Bearer admin-token":
@@ -84,7 +85,7 @@ async def require_admin_auth(authorization: Optional[str] = Header(None)):
             status_code=403,
             detail="Invalid authorization token"
         )
-    
+
     return True
 
 
@@ -98,37 +99,37 @@ async def get_client_id(x_forwarded_for: Optional[str] = Header(None)) -> str:
 
 class RateLimiter:
     """Simple in-memory rate limiter - PILLAR 3: OPERATIONAL STABILITY"""
-    
+
     def __init__(self, calls: int, period: int):
         self.calls = calls
         self.period = period
         self.requests = {}
-    
+
     async def __call__(self, client_id: str = Depends(get_client_id)):
         now = asyncio.get_event_loop().time()
-        
+
         # Clean old requests
         self.requests = {
             k: v for k, v in self.requests.items()
             if now - v[-1] < self.period
         }
-        
+
         # Check rate limit
         if client_id in self.requests:
             timestamps = self.requests[client_id]
             timestamps = [t for t in timestamps if now - t < self.period]
-            
+
             if len(timestamps) >= self.calls:
                 raise HTTPException(
                     status_code=429,
                     detail=f"Rate limit exceeded: {self.calls} calls per {self.period} seconds"
                 )
-            
+
             timestamps.append(now)
             self.requests[client_id] = timestamps
         else:
             self.requests[client_id] = [now]
-        
+
         return True
 
 

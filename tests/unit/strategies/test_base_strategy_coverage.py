@@ -110,7 +110,7 @@ class TestBaseStrategy:
             strategy_id="Test",
             price=150.0
         )
-        
+
         risk_context = RiskContext(
             account_equity=100000,
             open_positions=0,
@@ -285,7 +285,7 @@ class TestBaseStrategy:
         # Invalid direction
         from pydantic import ValidationError
         try:
-            signal2 = Signal(
+            Signal(
                 symbol="AAPL",
                 direction="INVALID",
                 strength=0.8,
@@ -293,13 +293,13 @@ class TestBaseStrategy:
                 strategy_id="Test",
                 price=150.0
             )
-            assert False, "Should have raised validation error"
+            raise AssertionError("Should have raised validation error")
         except ValidationError:
             pass  # Expected
 
         # Invalid strength for LONG
         try:
-            signal3 = Signal(
+            Signal(
                 symbol="AAPL",
                 direction="LONG",
                 strength=-0.5,
@@ -307,13 +307,13 @@ class TestBaseStrategy:
                 strategy_id="Test",
                 price=150.0
             )
-            assert False, "Should have raised validation error"
+            raise AssertionError("Should have raised validation error")
         except ValueError:
             pass  # Expected
 
         # Invalid strength for SHORT
         try:
-            signal4 = Signal(
+            Signal(
                 symbol="AAPL",
                 direction="SHORT",
                 strength=0.5,
@@ -321,7 +321,7 @@ class TestBaseStrategy:
                 strategy_id="Test",
                 price=150.0
             )
-            assert False, "Should have raised validation error"
+            raise AssertionError("Should have raised validation error")
         except ValueError:
             pass  # Expected
 

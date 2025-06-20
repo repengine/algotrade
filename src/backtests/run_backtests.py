@@ -10,7 +10,6 @@ from typing import Any
 import backtrader as bt
 import pandas as pd
 from backtrader.analyzers import DrawDown, Returns, SharpeRatio, TradeAnalyzer
-
 from core.data_handler import DataHandler
 from strategies.base import BaseStrategy, RiskContext, Signal
 
@@ -46,7 +45,7 @@ class AlgoStackStrategy(bt.Strategy):
             "datetime": current_datetime,
             "equity": current_equity
         })
-        
+
         # Prepare data for AlgoStack strategy
         lookback = self.algostack_strategy.config.get("lookback_period", 252)
 
@@ -272,11 +271,11 @@ class BacktestEngine:
             except Exception as e:
                 logger.warning(f"Failed to create equity curve from history: {e}")
                 # Fall back to simple equity curve
-                equity_curve = pd.Series([self.initial_capital, cerebro.broker.getvalue()], 
+                equity_curve = pd.Series([self.initial_capital, cerebro.broker.getvalue()],
                                        index=[datetime.now(), datetime.now()])
         else:
             # Create a simple equity curve with just initial and final values
-            equity_curve = pd.Series([self.initial_capital, cerebro.broker.getvalue()], 
+            equity_curve = pd.Series([self.initial_capital, cerebro.broker.getvalue()],
                                    index=[datetime.now(), datetime.now()])
 
         # Store results

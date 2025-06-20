@@ -15,14 +15,12 @@ import os
 import sys
 from datetime import datetime
 
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-
-logger = logging.getLogger(__name__)
-
-# Add parent directory to path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Import enhanced backtesting components
 # Import existing dashboard components
@@ -42,6 +40,8 @@ from scripts.dashboard_pandas import (
 
 # Import pandas indicators
 from scripts.pandas_indicators import create_talib_compatible_module
+
+logger = logging.getLogger(__name__)
 
 sys.modules["talib"] = create_talib_compatible_module()
 

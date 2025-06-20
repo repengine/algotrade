@@ -10,7 +10,7 @@ from datetime import datetime
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-import pytest_asyncio
+
 from src.core.engine.order_manager import (
     Order,
     OrderFill,

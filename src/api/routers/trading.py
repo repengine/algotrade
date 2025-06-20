@@ -1,15 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import List, Optional, Dict, Any
-from datetime import datetime
 import logging
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
+from core.executor import OrderStatus
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from ..dependencies import get_trading_engine
 from ..models import (
-    Position, PositionCreate, PositionResponse,
-    Order, OrderCreate, OrderUpdate, OrderResponse,
-    Trade, TradeResponse
+    Order,
+    OrderCreate,
+    OrderResponse,
+    OrderUpdate,
+    PositionResponse,
+    TradeResponse,
 )
-from ..dependencies import get_trading_engine, get_portfolio_engine, get_order_manager
-from core.executor import OrderStatus, OrderSide, OrderType
 
 logger = logging.getLogger(__name__)
 
@@ -25,17 +29,17 @@ async def get_positions(
     """Get all open positions - PILLAR 4: VERIFIABLE CORRECTNESS"""
     if not engine:
         raise HTTPException(status_code=503, detail="Trading engine not available")
-    
+
     try:
         portfolio = engine.portfolio
         positions = list(portfolio.positions.values())
-        
+
         # Apply filters
         if symbol:
             positions = [p for p in positions if p.symbol == symbol]
         if strategy_id:
             positions = [p for p in positions if p.strategy_id == strategy_id]
-        
+
         # Convert to response model
         return [
             PositionResponse(
@@ -55,7 +59,7 @@ async def get_positions(
         ]
     except Exception as e:
         logger.error(f"Error getting positions: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/positions/{position_id}", response_model=PositionResponse)
@@ -66,14 +70,14 @@ async def get_position(
     """Get single position details - PILLAR 4: VERIFIABLE CORRECTNESS"""
     if not engine:
         raise HTTPException(status_code=503, detail="Trading engine not available")
-    
+
     try:
         portfolio = engine.portfolio
         position = portfolio.positions.get(position_id)
-        
+
         if not position:
             raise HTTPException(status_code=404, detail=f"Position {position_id} not found")
-        
+
         return PositionResponse(
             position_id=position.position_id,
             symbol=position.symbol,
@@ -91,7 +95,7 @@ async def get_position(
         raise
     except Exception as e:
         logger.error(f"Error getting position {position_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/orders", response_model=List[OrderResponse])
@@ -106,11 +110,11 @@ async def get_orders(
     """Get orders with pagination - PILLAR 4: VERIFIABLE CORRECTNESS"""
     if not engine:
         raise HTTPException(status_code=503, detail="Trading engine not available")
-    
+
     try:
         order_manager = engine.order_manager
         orders = list(order_manager.orders.values())
-        
+
         # Apply filters
         if status:
             orders = [o for o in orders if o.status == status]
@@ -118,14 +122,14 @@ async def get_orders(
             orders = [o for o in orders if o.symbol == symbol]
         if strategy_id:
             orders = [o for o in orders if o.strategy_id == strategy_id]
-        
+
         # Sort by created_at descending
         orders.sort(key=lambda x: x.created_at, reverse=True)
-        
+
         # Apply pagination
-        total = len(orders)
+        len(orders)
         orders = orders[offset:offset + limit]
-        
+
         # Convert to response model
         return [
             OrderResponse(
@@ -148,7 +152,7 @@ async def get_orders(
         ]
     except Exception as e:
         logger.error(f"Error getting orders: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/orders", response_model=OrderResponse)
@@ -159,12 +163,12 @@ async def create_order(
     """Submit new order with risk checks - PILLAR 1: CAPITAL PRESERVATION"""
     if not engine:
         raise HTTPException(status_code=503, detail="Trading engine not available")
-    
+
     try:
         # Validate market hours
         if not engine.is_market_open():
             raise HTTPException(status_code=400, detail="Market is closed")
-        
+
         # Create order object
         new_order = Order(
             order_id=f"ORD-{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}",
@@ -179,7 +183,7 @@ async def create_order(
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
-        
+
         # Risk checks - CRITICAL FOR CAPITAL PRESERVATION
         risk_check = await engine.risk_manager.check_order(new_order)
         if not risk_check["allowed"]:
@@ -187,15 +191,15 @@ async def create_order(
                 status_code=403,
                 detail=f"Order rejected by risk manager: {risk_check.get('reason', 'Unknown')}"
             )
-        
+
         # Submit order
         await engine.submit_order(new_order)
-        
+
         # Get updated order from order manager
         submitted_order = engine.order_manager.orders.get(new_order.order_id)
         if not submitted_order:
             raise HTTPException(status_code=500, detail="Order submission failed")
-        
+
         return OrderResponse(
             order_id=submitted_order.order_id,
             symbol=submitted_order.symbol,
@@ -212,12 +216,12 @@ async def create_order(
             updated_at=submitted_order.updated_at,
             broker_order_id=submitted_order.broker_order_id
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error creating order: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.put("/orders/{order_id}", response_model=OrderResponse)
@@ -229,27 +233,27 @@ async def update_order(
     """Modify pending order - PILLAR 1: CAPITAL PRESERVATION"""
     if not engine:
         raise HTTPException(status_code=503, detail="Trading engine not available")
-    
+
     try:
         order_manager = engine.order_manager
         order = order_manager.orders.get(order_id)
-        
+
         if not order:
             raise HTTPException(status_code=404, detail=f"Order {order_id} not found")
-        
+
         # Only pending orders can be modified
         if order.status != OrderStatus.PENDING:
             raise HTTPException(
                 status_code=400,
                 detail=f"Cannot modify order with status {order.status}"
             )
-        
+
         # Apply updates
         if update.quantity is not None:
             order.quantity = update.quantity
         if update.limit_price is not None:
             order.limit_price = update.limit_price
-        
+
         # Re-run risk checks
         risk_check = await engine.risk_manager.check_order(order)
         if not risk_check["allowed"]:
@@ -257,12 +261,12 @@ async def update_order(
                 status_code=403,
                 detail=f"Updated order rejected by risk manager: {risk_check.get('reason', 'Unknown')}"
             )
-        
+
         # Update with broker
         await engine.broker.modify_order(order_id, update.dict(exclude_unset=True))
-        
+
         order.updated_at = datetime.utcnow()
-        
+
         return OrderResponse(
             order_id=order.order_id,
             symbol=order.symbol,
@@ -279,12 +283,12 @@ async def update_order(
             updated_at=order.updated_at,
             broker_order_id=order.broker_order_id
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error updating order {order_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/orders/{order_id}")
@@ -295,39 +299,39 @@ async def cancel_order(
     """Cancel pending order - PILLAR 1: CAPITAL PRESERVATION"""
     if not engine:
         raise HTTPException(status_code=503, detail="Trading engine not available")
-    
+
     try:
         order_manager = engine.order_manager
         order = order_manager.orders.get(order_id)
-        
+
         if not order:
             raise HTTPException(status_code=404, detail=f"Order {order_id} not found")
-        
+
         # Only pending orders can be cancelled
         if order.status != OrderStatus.PENDING:
             raise HTTPException(
                 status_code=400,
                 detail=f"Cannot cancel order with status {order.status}"
             )
-        
+
         # Cancel with broker
         await engine.broker.cancel_order(order_id)
-        
+
         # Update order status
         order.status = OrderStatus.CANCELLED
         order.updated_at = datetime.utcnow()
-        
+
         return {
             "message": f"Order {order_id} cancelled successfully",
             "order_id": order_id,
             "status": "cancelled"
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error cancelling order {order_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/trades", response_model=List[TradeResponse])
@@ -343,11 +347,11 @@ async def get_trades(
     """Get trade history - PILLAR 4: VERIFIABLE CORRECTNESS"""
     if not engine:
         raise HTTPException(status_code=503, detail="Trading engine not available")
-    
+
     try:
         # Get trades from portfolio or trade history
         trades = []  # Would get from portfolio.trade_history or similar
-        
+
         # Apply filters
         if symbol:
             trades = [t for t in trades if t.symbol == symbol]
@@ -357,14 +361,14 @@ async def get_trades(
             trades = [t for t in trades if t.timestamp >= start_date]
         if end_date:
             trades = [t for t in trades if t.timestamp <= end_date]
-        
+
         # Sort by timestamp descending
         trades.sort(key=lambda x: x.timestamp, reverse=True)
-        
+
         # Apply pagination
-        total = len(trades)
+        len(trades)
         trades = trades[offset:offset + limit]
-        
+
         # Convert to response model
         return [
             TradeResponse(
@@ -383,4 +387,4 @@ async def get_trades(
         ]
     except Exception as e:
         logger.error(f"Error getting trades: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

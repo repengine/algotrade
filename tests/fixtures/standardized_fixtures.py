@@ -5,7 +5,6 @@ This module provides comprehensive, reusable fixtures following the plan in
 docs/planning/test-fix-implementation-plan.md
 """
 
-import asyncio
 from datetime import datetime, timedelta
 from typing import Any, Dict, List
 from unittest.mock import AsyncMock, MagicMock
@@ -463,9 +462,8 @@ def api_client():
             response = api_client.get('/api/v1/positions')
             assert response.status_code == 200
     """
-    from fastapi.testclient import TestClient
-
     from api.app import app
+    from fastapi.testclient import TestClient
 
     return TestClient(app)
 

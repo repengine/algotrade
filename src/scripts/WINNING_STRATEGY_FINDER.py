@@ -14,12 +14,12 @@ from typing import Any
 import pandas as pd
 import yfinance as yf
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 # Import strategies
 from strategies.mean_reversion_equity import MeanReversionEquity
 from strategies.trend_following_multi import TrendFollowingMulti
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class StrategyTester:

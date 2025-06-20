@@ -872,6 +872,9 @@ class TestModulePlaceholders:
 
     def test_placeholder_types(self):
         """Test that placeholder types exist."""
+        # Check types - RiskLimits is a dataclass, others are dict aliases or dataclasses
+        from dataclasses import is_dataclass
+
         from core.risk import (
             PortfolioRisk,
             PositionRisk,
@@ -879,9 +882,6 @@ class TestModulePlaceholders:
             RiskLimits,
             RiskViolation,
         )
-
-        # Check types - RiskLimits is a dataclass, others are dict aliases or dataclasses
-        from dataclasses import is_dataclass
         assert is_dataclass(RiskLimits)  # RiskLimits is a dataclass
         assert PositionRisk is dict  # Dict alias
         assert PortfolioRisk is dict  # Dict alias

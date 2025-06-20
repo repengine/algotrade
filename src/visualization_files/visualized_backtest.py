@@ -8,22 +8,20 @@ This script runs backtests with comprehensive visualizations showing strategy pe
 import os
 import sys
 import warnings
+from datetime import datetime
+from pathlib import Path
 
 warnings.filterwarnings("ignore")
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from datetime import datetime
-from pathlib import Path
-
 import matplotlib.pyplot as plt
-
-# Import mock system first
 import numpy as np
 import pandas as pd
 import seaborn as sns
 
+# Import mock system first
 from core.data_handler import DataHandler
 from strategies.mean_reversion_equity import MeanReversionEquity
 

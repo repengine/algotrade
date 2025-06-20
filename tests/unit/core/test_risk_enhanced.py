@@ -233,7 +233,7 @@ class TestEnhancedRiskManager:
         """Test position size calculation."""
         # Test the internal _calculate_position_size method
         from strategies.base import Signal
-        signal = Signal(
+        Signal(
             symbol='AAPL',
             direction='LONG',
             strength=0.8,
@@ -248,7 +248,7 @@ class TestEnhancedRiskManager:
         # AAPL has specific limit of 15% in the config
         assert risk_manager.check_position_size('AAPL', 15000, 100000) is True
         assert risk_manager.check_position_size('AAPL', 16000, 100000) is False
-        
+
         # Test with a symbol without specific limit (uses default 20%)
         assert risk_manager.check_position_size('MSFT', 20000, 100000) is True
         assert risk_manager.check_position_size('MSFT', 21000, 100000) is False

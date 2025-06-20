@@ -533,7 +533,7 @@ poetry run grep "^from\|^import" src/module/file.py
 - [ ] Morning: Pull latest changes, create new branch
 - [ ] Run baseline tests to know starting point
 - [ ] Implement fixes with constant testing
-- [ ] Run quality checks (ruff, mypy)
+- [ ] Run quality checks (ruff, mypy) (THEY MUST PASS FULLY)
 - [ ] Commit with descriptive messages
 - [ ] Evening: Push branch, create PR
 - [ ] Document any blockers or concerns

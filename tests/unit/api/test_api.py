@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from unittest.mock import AsyncMock, Mock, patch
-from datetime import datetime
 
 import pytest
 from api.app import create_app
@@ -145,6 +144,14 @@ class TestAPIEndpoints:
         app = create_app()
         with TestClient(app) as client:
             yield client
+    
+    @pytest.fixture(autouse=True)
+    def setup_teardown(self):
+        """Setup and teardown for each test."""
+        from api.dependencies import set_trading_engine
+        yield
+        # Clean up after each test
+        set_trading_engine(None)
 
     @pytest.fixture
     def mock_trading_engine(self):
@@ -152,16 +159,16 @@ class TestAPIEndpoints:
         engine = Mock()
         engine.is_running = True
         engine.status = 'running'  # Add status attribute
-        
+
         # Create mock strategies with required attributes
         strategy1 = Mock()
         strategy1.active = True
         strategy1.__class__.__name__ = 'TestStrategy1'
-        
+
         strategy2 = Mock()
         strategy2.active = False
         strategy2.__class__.__name__ = 'TestStrategy2'
-        
+
         engine.strategies = [strategy1, strategy2]  # Real list, not Mock
         engine.symbols = ['AAPL', 'GOOGL', 'MSFT']  # Add symbols list
         engine.circuit_breaker_active = False
@@ -172,13 +179,35 @@ class TestAPIEndpoints:
             'positions': 5,
             'pending_orders': 2
         })
+        
+        # Mock risk manager with async check_order
+        engine.risk_manager = Mock()
+        engine.risk_manager.check_order = AsyncMock(return_value={'allowed': True})
+        
+        # Mock order manager
+        engine.order_manager = Mock()
+        engine.order_manager.orders = {}
+        
+        # Create a side effect for submit_order that adds the order to order_manager
+        async def mock_submit_order(order):
+            # Add the order to the order manager
+            order.status = 'SUBMITTED'
+            order.created_at = datetime.now()
+            order.updated_at = datetime.now()
+            order.broker_order_id = None
+            order.filled_quantity = 0
+            order.average_fill_price = None
+            engine.order_manager.orders[order.order_id] = order
+        
+        engine.submit_order = AsyncMock(side_effect=mock_submit_order)
+        
         return engine
 
     @pytest.fixture
     def mock_portfolio_engine(self):
         """Create mock portfolio engine."""
         portfolio = Mock()
-        
+
         # Create a mock position that matches what the endpoint expects
         mock_position = Mock()
         mock_position.position_id = 'POS123'
@@ -193,9 +222,9 @@ class TestAPIEndpoints:
         mock_position.direction = 'LONG'
         mock_position.opened_at = '2025-01-01T09:30:00'
         mock_position.updated_at = datetime.utcnow()  # Add datetime field
-        
+
         portfolio.positions = {'AAPL': mock_position}  # Dict of positions
-        
+
         portfolio.get_portfolio_value = Mock(return_value=150000)
         portfolio.get_positions_summary = Mock(return_value=[
             {
@@ -223,14 +252,14 @@ class TestAPIEndpoints:
 
     def test_system_status(self, mock_trading_engine):
         """Test system status endpoint."""
-        from api.dependencies import get_trading_engine
         from api.app import create_app
-        
+        from api.dependencies import get_trading_engine
+
         app = create_app()
-        
+
         # Override the dependency
         app.dependency_overrides[get_trading_engine] = lambda: mock_trading_engine
-        
+
         with TestClient(app) as client:
             response = client.get("/api/v1/status")
 
@@ -238,21 +267,21 @@ class TestAPIEndpoints:
             data = response.json()
             print(f"Response data: {data}")  # Debug
             assert data['status'] == 'running'  # Status is at top level, not under trading_engine
-        
+
         # Clean up
         app.dependency_overrides.clear()
 
     def test_get_positions(self, mock_trading_engine, mock_portfolio_engine):
         """Test get positions endpoint."""
-        from api.dependencies import get_trading_engine
         from api.app import create_app
-        
+        from api.dependencies import get_trading_engine
+
         # Set up mock engine with portfolio
         mock_trading_engine.portfolio = mock_portfolio_engine
-        
+
         app = create_app()
         app.dependency_overrides[get_trading_engine] = lambda: mock_trading_engine
-        
+
         with TestClient(app) as client:
             response = client.get("/api/v1/positions")
 
@@ -260,7 +289,7 @@ class TestAPIEndpoints:
             positions = response.json()
             assert len(positions) == 1
             assert positions[0]['symbol'] == 'AAPL'
-        
+
         app.dependency_overrides.clear()
 
     def test_place_order(self, client, mock_trading_engine):
@@ -277,13 +306,20 @@ class TestAPIEndpoints:
             'order_type': 'MARKET'
         }
 
-        with patch("api.dependencies.get_trading_engine", return_value=mock_trading_engine):
-            response = client.post("/api/v1/orders", json=order_data)
-
-            assert response.status_code == 200
-            result = response.json()
-            assert result['order_id'] == 'ORD123'
-            assert result['status'] == 'SUBMITTED'
+        # Set the global trading engine for the test
+        from api.dependencies import set_trading_engine
+        set_trading_engine(mock_trading_engine)
+        
+        response = client.post("/api/v1/orders", json=order_data)
+        
+        assert response.status_code == 200
+        result = response.json()
+        assert 'order_id' in result
+        assert result['status'] == 'SUBMITTED'
+        
+        # Verify the order was added to the order manager
+        assert len(mock_trading_engine.order_manager.orders) == 1
+        assert mock_trading_engine.submit_order.called
 
     def test_place_order_validation_error(self, client):
         """Test order placement with validation error."""
@@ -299,17 +335,41 @@ class TestAPIEndpoints:
 
     def test_cancel_order(self, client, mock_trading_engine):
         """Test cancel order endpoint."""
-        mock_trading_engine.cancel_order = AsyncMock(return_value={
-            'order_id': 'ORD123',
-            'status': 'CANCELLED'
-        })
-
-        with patch("api.dependencies.get_trading_engine", return_value=mock_trading_engine):
-            response = client.delete("/api/v1/orders/ORD123")
-
-            assert response.status_code == 200
-            result = response.json()
-            assert result['status'] == 'CANCELLED'
+        # Add cancel_order mock and a mock order to cancel
+        mock_order = Mock()
+        mock_order.order_id = 'ORD123'
+        mock_order.status = OrderStatus.PENDING
+        mock_order.symbol = 'AAPL'
+        mock_order.side = 'BUY'
+        mock_order.quantity = 100
+        mock_order.order_type = 'MARKET'
+        mock_order.limit_price = None
+        mock_order.stop_price = None
+        mock_order.filled_quantity = 0
+        mock_order.average_fill_price = None
+        mock_order.strategy_id = 'manual'
+        mock_order.created_at = datetime.now()
+        mock_order.updated_at = datetime.now()
+        mock_order.broker_order_id = None
+        
+        mock_trading_engine.order_manager.orders['ORD123'] = mock_order
+        mock_trading_engine.cancel_order = AsyncMock()
+        
+        # Mock the cancel to update the order status
+        async def mock_cancel(order_id):
+            if order_id in mock_trading_engine.order_manager.orders:
+                mock_trading_engine.order_manager.orders[order_id].status = OrderStatus.CANCELLED
+        
+        mock_trading_engine.cancel_order.side_effect = mock_cancel
+        
+        from api.dependencies import set_trading_engine
+        set_trading_engine(mock_trading_engine)
+        
+        response = client.delete("/api/v1/orders/ORD123")
+        
+        assert response.status_code == 200
+        result = response.json()
+        assert result['status'] == 'CANCELLED'
 
     def test_get_orders(self, client, mock_trading_engine):
         """Test get orders endpoint."""
@@ -446,13 +506,13 @@ class TestWebSocketEndpoints:
                     'action': 'subscribe',
                     'channels': ['market_data']
                 })
-                
+
                 # The WebSocket should accept the subscription
                 # but may not send an immediate response
                 # Just verify the connection doesn't close
                 import time
                 time.sleep(0.1)  # Give it a moment
-                
+
                 # Connection should still be open
                 assert websocket.application_state == websocket.application_state.CONNECTED
         except Exception as e:
@@ -472,7 +532,7 @@ class TestWebSocketEndpoints:
                 # Give it a moment to process
                 import time
                 time.sleep(0.1)
-                
+
                 # Verify connection is still open
                 assert websocket.application_state == websocket.application_state.CONNECTED
         except Exception as e:
@@ -491,7 +551,7 @@ class TestWebSocketEndpoints:
                 # Give it a moment to process
                 import time
                 time.sleep(0.1)
-                
+
                 # Verify connection is still open
                 assert websocket.application_state == websocket.application_state.CONNECTED
         except Exception as e:
@@ -510,7 +570,7 @@ class TestWebSocketEndpoints:
                 # Give it a moment to process
                 import time
                 time.sleep(0.1)
-                
+
                 # Verify connection is still open
                 assert websocket.application_state == websocket.application_state.CONNECTED
         except Exception as e:

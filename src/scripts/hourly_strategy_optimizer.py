@@ -12,10 +12,10 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
+from strategies.mean_reversion_equity import MeanReversionEquity
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-from strategies.mean_reversion_equity import MeanReversionEquity
 
 
 class HourlyStrategyOptimizer:

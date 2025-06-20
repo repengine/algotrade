@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends
-from typing import Dict, Any
 from datetime import datetime
-import asyncio
+from typing import Any, Dict
 
-from ..dependencies import get_trading_engine, get_database_status, get_broker_status
+from fastapi import APIRouter, Depends
+
+from ..dependencies import get_broker_status, get_database_status, get_trading_engine
 
 router = APIRouter()
 
@@ -17,16 +17,16 @@ async def health_check() -> Dict[str, Any]:
         "version": "2.0.0",
         "details": {}
     }
-    
+
     try:
         # Check database connection
         db_status = await get_database_status()
         health_status["details"]["database"] = db_status
-        
+
         # Check broker connection
         broker_status = await get_broker_status()
         health_status["details"]["broker"] = broker_status
-        
+
         # Check trading engine
         engine = await get_trading_engine()
         engine_healthy = engine is not None
@@ -34,7 +34,7 @@ async def health_check() -> Dict[str, Any]:
             "connected": engine_healthy,
             "status": getattr(engine, 'status', 'unknown') if engine else 'disconnected'
         }
-        
+
         # For test environment or when no engine is set, still return healthy
         # In production, you would want stricter checks
         if engine is None:
@@ -48,11 +48,11 @@ async def health_check() -> Dict[str, Any]:
                 engine_healthy
             ]):
                 health_status["status"] = "degraded"
-            
+
     except Exception as e:
         health_status["status"] = "unhealthy"
         health_status["error"] = str(e)
-    
+
     return health_status
 
 
@@ -65,7 +65,7 @@ async def system_status(engine = Depends(get_trading_engine)) -> Dict[str, Any]:
             "message": "Trading engine not initialized",
             "timestamp": datetime.utcnow().isoformat()
         }
-    
+
     try:
         # Get comprehensive system status
         status = {
@@ -98,9 +98,9 @@ async def system_status(engine = Depends(get_trading_engine)) -> Dict[str, Any]:
                 "pending_orders": 0  # Could get from order manager
             }
         }
-        
+
         return status
-        
+
     except Exception as e:
         return {
             "status": "error",

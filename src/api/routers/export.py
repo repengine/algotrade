@@ -1,14 +1,14 @@
-from fastapi import APIRouter, Depends, Query
-from fastapi.responses import Response
-from typing import Optional
-from datetime import datetime
 import csv
 import io
 import json
 import logging
+from datetime import datetime
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
 
 from ..dependencies import get_trading_engine
-from ..models import TradeResponse
 
 logger = logging.getLogger(__name__)
 
@@ -30,17 +30,17 @@ async def export_data(
             media_type="application/json",
             status_code=503
         )
-    
+
     try:
         # Get data based on type
         if data_type == "trades":
             # Get trades from portfolio or trade history
             trades = []  # Would get from portfolio.trade_history
-            
+
             if format == "csv":
                 output = io.StringIO()
                 if trades:
-                    fieldnames = ["trade_id", "symbol", "side", "quantity", "price", 
+                    fieldnames = ["trade_id", "symbol", "side", "quantity", "price",
                                   "commission", "timestamp", "pnl", "strategy_id"]
                     writer = csv.DictWriter(output, fieldnames=fieldnames)
                     writer.writeheader()
@@ -56,7 +56,7 @@ async def export_data(
                             "pnl": trade.pnl,
                             "strategy_id": trade.strategy_id
                         })
-                
+
                 return Response(
                     content=output.getvalue(),
                     media_type="text/csv",
@@ -72,14 +72,14 @@ async def export_data(
                         "Content-Disposition": f"attachment; filename=trades_{datetime.now().strftime('%Y%m%d')}.json"
                     }
                 )
-        
+
         elif data_type == "positions":
             positions = list(engine.portfolio.positions.values())
-            
+
             if format == "csv":
                 output = io.StringIO()
                 if positions:
-                    fieldnames = ["symbol", "quantity", "entry_price", "current_price", 
+                    fieldnames = ["symbol", "quantity", "entry_price", "current_price",
                                   "market_value", "pnl", "pnl_percentage", "strategy_id"]
                     writer = csv.DictWriter(output, fieldnames=fieldnames)
                     writer.writeheader()
@@ -94,7 +94,7 @@ async def export_data(
                             "pnl_percentage": pos.pnl_percentage,
                             "strategy_id": pos.strategy_id
                         })
-                
+
                 return Response(
                     content=output.getvalue(),
                     media_type="text/csv",
@@ -107,10 +107,10 @@ async def export_data(
                     content=json.dumps([p.__dict__ for p in positions], default=str),
                     media_type="application/json"
                 )
-        
+
         elif data_type == "orders":
             orders = list(engine.order_manager.orders.values())
-            
+
             if format == "csv":
                 output = io.StringIO()
                 if orders:
@@ -130,7 +130,7 @@ async def export_data(
                             "filled_quantity": order.filled_quantity,
                             "average_fill_price": order.average_fill_price
                         })
-                
+
                 return Response(
                     content=output.getvalue(),
                     media_type="text/csv",
@@ -143,7 +143,7 @@ async def export_data(
                     content=json.dumps([o.__dict__ for o in orders], default=str),
                     media_type="application/json"
                 )
-        
+
         elif data_type == "performance":
             # Generate performance report
             perf_data = {
@@ -157,13 +157,13 @@ async def export_data(
                 "sharpe_ratio": 0.0,  # Would calculate
                 "max_drawdown": 0.0  # Would calculate
             }
-            
+
             if format == "csv":
                 output = io.StringIO()
                 writer = csv.DictWriter(output, fieldnames=perf_data.keys())
                 writer.writeheader()
                 writer.writerow(perf_data)
-                
+
                 return Response(
                     content=output.getvalue(),
                     media_type="text/csv",
@@ -176,7 +176,7 @@ async def export_data(
                     content=json.dumps(perf_data, default=str),
                     media_type="application/json"
                 )
-        
+
     except Exception as e:
         logger.error(f"Error exporting {data_type}: {e}")
         return Response(

@@ -68,7 +68,7 @@ class TestDataPipelineIntegration:
 
             # Set up components
             fetcher = YFinanceFetcher()
-            data_handler = DataHandler(['yfinance'])
+            DataHandler(['yfinance'])
 
             # Strategy configuration
             strategy_config = {
@@ -220,7 +220,7 @@ class TestDataPipelineIntegration:
                 assert all_data[symbol].index.equals(first_symbol_dates)
 
             # Verify data quality for each symbol
-            for symbol, data in all_data.items():
+            for _, data in all_data.items():
                 assert len(data) > 0
                 assert data['close'].notna().all()
                 assert (data['volume'] > 0).all()

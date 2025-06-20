@@ -22,6 +22,7 @@ warnings.filterwarnings("ignore")
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 import pandas as pd
@@ -32,13 +33,11 @@ from plotly.subplots import make_subplots
 
 # Import pandas indicators and create talib replacement
 from pandas_indicators import create_talib_compatible_module
+# Import Alpha Vantage fetcher directly to avoid adapter __init__ imports
+from adapters.av_fetcher import AlphaVantageFetcher
 
 # Replace talib in sys.modules before any other imports
 sys.modules["talib"] = create_talib_compatible_module()
-
-# Import Alpha Vantage fetcher directly to avoid adapter __init__ imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from adapters.av_fetcher import AlphaVantageFetcher
 
 
 # Mock validator that converts types automatically
@@ -55,7 +54,7 @@ def mock_validator(config):
                     converted[key] = float(value)
                 else:
                     converted[key] = int(value)
-            except:
+            except (ValueError, TypeError):
                 pass
 
         # Convert 0/1 to bool for known boolean parameters
@@ -78,7 +77,7 @@ def mock_validator(config):
         ):
             try:
                 converted[key] = float(value)
-            except:
+            except (ValueError, TypeError):
                 pass
 
         # Ensure ints for period parameters
@@ -89,7 +88,7 @@ def mock_validator(config):
         ]:
             try:
                 converted[key] = int(value)
-            except:
+            except (ValueError, TypeError):
                 pass
 
     return converted
@@ -106,15 +105,6 @@ validators_to_patch = [
     "validate_hybrid_regime_config",
 ]
 
-for validator in validators_to_patch:
-    try:
-        patch(
-            f"utils.validators.strategy_validators.{validator}",
-            side_effect=mock_validator,
-        ).start()
-    except AttributeError:
-        pass
-
 # Import integration helpers (now using pandas indicators)
 # Import strategy defaults
 # Import base strategy
@@ -125,6 +115,15 @@ from strategy_defaults import (
     merge_with_defaults,
 )
 from strategy_integration_helpers import DataFormatConverter, RiskContextMock
+
+for validator in validators_to_patch:
+    try:
+        patch(
+            f"utils.validators.strategy_validators.{validator}",
+            side_effect=mock_validator,
+        ).start()
+    except AttributeError:
+        pass
 
 
 class AlphaVantageDataManager:
@@ -1070,7 +1069,7 @@ def main():
     }
 
     # Categorize parameters
-    for param, value in default_params.items():
+    for param, _ in default_params.items():
         if param == "symbol":
             continue
 

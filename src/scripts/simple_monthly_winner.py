@@ -12,13 +12,13 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-# Setup basic logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 # Import our strategies
 from strategies.mean_reversion_equity import MeanReversionEquity
 from strategies.trend_following_multi import TrendFollowingMulti
+
+# Setup basic logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class SimpleBacktester:

@@ -11,10 +11,7 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
-
+from api.dependencies import set_trading_engine
 from api.models import (
     AlertInfo,
     OrderCommand,
@@ -32,9 +29,11 @@ from api.models import (
     WSMessage,
     WSSubscription,
 )
+from api.routers import export, health, performance, risk, strategies, trading
 from core.live_engine import LiveTradingEngine
-from api.routers import health, trading, performance, risk, strategies, export
-from api.dependencies import set_trading_engine, rate_limit_api
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
 logger = logging.getLogger(__name__)
 
@@ -128,11 +127,11 @@ class MonitoringAPI:
 
     def _setup_routes(self):
         """Setup API routes."""
-        
+
         # Set the trading engine for dependency injection
         if self.engine:
             set_trading_engine(self.engine)
-        
+
         # Include routers with API versioning
         self.app.include_router(health.router, prefix="/api/v1", tags=["health"])
         self.app.include_router(trading.router, prefix="/api/v1", tags=["trading"])
@@ -140,10 +139,10 @@ class MonitoringAPI:
         self.app.include_router(risk.router, prefix="/api/v1", tags=["risk"])
         self.app.include_router(strategies.router, prefix="/api/v1", tags=["strategies"])
         self.app.include_router(export.router, prefix="/api/v1", tags=["export"])
-        
+
         # Also add health endpoint at root for tests
         self.app.include_router(health.router, tags=["health"])
-        
+
         # Keep legacy endpoints for backward compatibility
         # System endpoints
         self.app.get("/api/system/info", response_model=SystemInfo)(
@@ -669,5 +668,4 @@ app = None
 ws_manager = ConnectionManager()
 
 # Import dependency functions for backward compatibility
-from api.dependencies import get_trading_engine, get_portfolio_engine
 

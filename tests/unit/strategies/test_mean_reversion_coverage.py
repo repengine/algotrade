@@ -12,6 +12,7 @@ import pytest
 # Mock talib import to test fallback
 sys.modules['talib'] = None
 
+# Import after mocking
 from strategies.mean_reversion_equity import MeanReversionEquity
 
 

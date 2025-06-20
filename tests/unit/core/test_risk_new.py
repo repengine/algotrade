@@ -927,7 +927,7 @@ class TestParametrizedRiskScenarios:
         metrics = risk_manager.calculate_risk_metrics(returns)
 
         meets_minimum = metrics.sharpe_ratio >= risk_manager.risk_limits["min_sharpe"]
-        
+
         # For negative expected returns, Sharpe should generally be negative
         # But with randomness, we might get small positive values
         # So let's check the expected relationship more robustly

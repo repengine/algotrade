@@ -8,7 +8,6 @@ from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
-
 from strategies.base import RiskContext, Signal
 from utils.constants import (
     DEFAULT_INITIAL_CAPITAL,

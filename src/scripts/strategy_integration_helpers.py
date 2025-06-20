@@ -308,9 +308,9 @@ def validate_strategy_config(
     for field, expected_type in numeric_fields.items():
         if field in validated_config:
             try:
-                if expected_type == int:
+                if expected_type is int:
                     validated_config[field] = int(validated_config[field])
-                elif expected_type == float:
+                elif expected_type is float:
                     validated_config[field] = float(validated_config[field])
             except (ValueError, TypeError):
                 # Keep original value if conversion fails

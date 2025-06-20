@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pandas as pd
 import pytest
-
 from core.live_engine import LiveTradingEngine
 from strategies.base import Signal
 
@@ -148,7 +147,7 @@ class TestPhase1LiveTradingEngine:
         mock_strategy = Mock()
         mock_strategy.enabled = True
         mock_strategy.symbols = ['AAPL']
-        
+
         # Mock generate_signals as an async function
         async def mock_generate_signals(data):
             return [Signal(
@@ -159,7 +158,7 @@ class TestPhase1LiveTradingEngine:
                 strategy_id='test_strategy',
                 price=151.0
             )]
-        
+
         mock_strategy.generate_signals = mock_generate_signals
         live_engine.strategies = {'test_strategy': mock_strategy}
         live_engine.market_data = {'AAPL': pd.DataFrame({'close': [150, 151]})}
@@ -181,7 +180,7 @@ class TestPhase1LiveTradingEngine:
             strategy = Mock()
             strategy.enabled = True
             strategy.symbols = ['AAPL']
-            
+
             # Each strategy returns a signal with different strength
             def make_generate_signals(strength):
                 async def generate_signals(data):
@@ -194,7 +193,7 @@ class TestPhase1LiveTradingEngine:
                         price=151.0
                     )]
                 return generate_signals
-            
+
             strategy.generate_signals = make_generate_signals(0.5 + i * 0.1)
             strategies[f'strategy_{i}'] = strategy
 
@@ -218,12 +217,12 @@ class TestPhase1LiveTradingEngine:
         mock_strategy = Mock()
         mock_strategy.enabled = True
         mock_strategy.symbols = ['AAPL']
-        
+
         async def slow_generate_signals(data):
             await asyncio.sleep(1)  # Sleep longer than timeout
-            return [Signal(symbol='AAPL', direction='LONG', strength=0.8, 
+            return [Signal(symbol='AAPL', direction='LONG', strength=0.8,
                           timestamp=datetime.now(), strategy_id='slow_strategy', price=151.0)]
-        
+
         mock_strategy.generate_signals = slow_generate_signals
         live_engine.strategies = {'slow_strategy': mock_strategy}
         live_engine.market_data = {'AAPL': pd.DataFrame({'close': [150, 151]})}
@@ -240,21 +239,21 @@ class TestPhase1LiveTradingEngine:
         buy_strategy = Mock()
         buy_strategy.enabled = True
         buy_strategy.symbols = ['AAPL']
-        
+
         async def buy_signals(data):
-            return [Signal(symbol='AAPL', direction='LONG', strength=0.8, 
+            return [Signal(symbol='AAPL', direction='LONG', strength=0.8,
                           timestamp=datetime.now(), strategy_id='buy_strategy', price=151.0)]
-        
+
         buy_strategy.generate_signals = buy_signals
 
         sell_strategy = Mock()
         sell_strategy.enabled = True
         sell_strategy.symbols = ['AAPL']
-        
+
         async def sell_signals(data):
-            return [Signal(symbol='AAPL', direction='SHORT', strength=-0.6, 
+            return [Signal(symbol='AAPL', direction='SHORT', strength=-0.6,
                           timestamp=datetime.now(), strategy_id='sell_strategy', price=151.0)]
-        
+
         sell_strategy.generate_signals = sell_signals
 
         live_engine.strategies = {
@@ -287,7 +286,7 @@ class TestPhase1LiveTradingEngine:
         }
         live_engine.portfolio_engine.positions = internal_positions
         live_engine.portfolio_engine.update_position = Mock()
-        
+
         # Remove reconcile_positions to force manual reconciliation
         if hasattr(live_engine.portfolio_engine, 'reconcile_positions'):
             delattr(live_engine.portfolio_engine, 'reconcile_positions')
@@ -388,7 +387,7 @@ class TestPhase1LiveTradingEngine:
         mock_strategy = Mock()
         mock_strategy.enabled = True
         mock_strategy.symbols = ['AAPL']
-        
+
         async def generate_signals_from_data(data):
             # Strategy that generates signal based on price increase
             if 'AAPL' in data and len(data['AAPL']) > 0:
@@ -401,7 +400,7 @@ class TestPhase1LiveTradingEngine:
                     price=154.0
                 )]
             return []
-        
+
         mock_strategy.generate_signals = generate_signals_from_data
         # Add mock for on_market_data if it gets called
         mock_strategy.on_market_data = AsyncMock()

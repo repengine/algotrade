@@ -56,11 +56,8 @@ class MockIntervalTrigger:
 sys.modules['apscheduler.triggers.cron'].CronTrigger = MockCronTrigger
 sys.modules['apscheduler.triggers.interval'].IntervalTrigger = MockIntervalTrigger
 
-# Now import LiveTradingEngine
-from core.executor import (
-    Order,
-    OrderType,
-)
+# Import after mocking
+from core.executor import Order, OrderType
 from core.live_engine import LiveTradingEngine, TradingMode
 from core.portfolio import Position
 from strategies.base import BaseStrategy, Signal

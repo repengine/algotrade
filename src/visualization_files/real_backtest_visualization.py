@@ -8,14 +8,13 @@ This script runs backtests using REAL libraries (no mocking) with comprehensive 
 import os
 import sys
 import warnings
+from datetime import datetime
+from pathlib import Path
 
 warnings.filterwarnings("ignore")
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-from datetime import datetime
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np

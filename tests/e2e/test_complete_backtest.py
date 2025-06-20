@@ -19,9 +19,9 @@ import pandas as pd
 import pytest
 import yaml
 from backtests.run_backtests import BacktestEngine
+from helpers.safe_logging import get_test_logger, suppress_test_output
 from strategies.mean_reversion_equity import MeanReversionEquity
 from strategies.trend_following_multi import TrendFollowingMulti
-from helpers.safe_logging import get_test_logger, suppress_test_output
 
 # Configure safe logging
 suppress_test_output()
@@ -517,12 +517,12 @@ class TestCompleteBacktest:
 
             # Mock data handler to return stressed data
             with patch('core.data_handler.DataHandler.get_historical') as mock_get_historical:
-                def return_stressed_data(symbol, start, end, interval="1d", provider=None):
-                    if symbol in stressed_data:
-                        return stressed_data[symbol]
+                def return_stressed_data(symbol, start, end, interval="1d", provider=None, _stressed_data=stressed_data):
+                    if symbol in _stressed_data:
+                        return _stressed_data[symbol]
                     # Fallback to empty data
                     return pd.DataFrame()
-                
+
                 mock_get_historical.side_effect = return_stressed_data
 
                 # Run backtest
@@ -540,7 +540,7 @@ class TestCompleteBacktest:
 
             # Verify risk management worked (adjusted for different scenarios)
             max_dd = results['metrics']['max_drawdown']
-            
+
             # Different drawdown expectations for different scenarios
             if scenario_name == 'bear_market':
                 assert max_dd < 1.0, f"Complete loss in {scenario_name}: {max_dd}"

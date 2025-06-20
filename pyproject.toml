@@ -61,6 +61,11 @@ faker = ">=19.0.0"
 streamlit = ">=1.29.0"
 pre-commit = "^4.2.0"
 coverage = "^7.8.2"
+backtrader = "^1.9.78.123"
+apscheduler = "^3.11.0"
+types-requests = "^2.32.4.20250611"
+types-pyyaml = "^6.0.12.20250516"
+types-pytz = "^2025.2.0.20250516"
 
 [tool.poetry.group.optional.dependencies]
 matplotlib = "^3.7.0"

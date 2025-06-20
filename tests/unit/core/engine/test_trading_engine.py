@@ -1,6 +1,6 @@
 """Comprehensive test suite for trading engine module."""
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from unittest.mock import AsyncMock, Mock
 
 import pandas as pd
@@ -270,7 +270,7 @@ class TestOrderManager:
 
     async def test_update_order_status(self, order_manager):
         """Test order status update."""
-        from core.engine.order_manager import OrderSide, OrderType, OrderStatus
+        from core.engine.order_manager import OrderSide, OrderStatus, OrderType
 
         # Create order
         order = await order_manager.create_order(
@@ -290,7 +290,7 @@ class TestOrderManager:
 
     async def test_cancel_order(self, order_manager):
         """Test order cancellation."""
-        from core.engine.order_manager import OrderSide, OrderType, OrderStatus
+        from core.engine.order_manager import OrderSide, OrderStatus, OrderType
 
         order = await order_manager.create_order(
             symbol="AAPL",
@@ -309,7 +309,7 @@ class TestOrderManager:
 
     async def test_get_pending_orders(self, order_manager):
         """Test getting pending orders."""
-        from core.engine.order_manager import OrderSide, OrderType, OrderStatus
+        from core.engine.order_manager import OrderSide, OrderStatus, OrderType
 
         # Create multiple orders
         order1 = await order_manager.create_order(

@@ -414,7 +414,7 @@ class TestIntegration:
         # Verify constraints
         assert len(adjusted_sizes) == len([s for s in signals if s.direction != "FLAT"])
 
-        for symbol, size in adjusted_sizes.items():
+        for _, size in adjusted_sizes.items():
             assert size >= 0
             assert size <= risk_manager.risk_limits["max_position_size"]
 

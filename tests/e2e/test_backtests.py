@@ -105,7 +105,7 @@ class TestBacktestEngine:
         # Mock run results with proper metrics
         mock_strategy_result = Mock()
         mock_analyzer = Mock()
-        
+
         # Add required attributes for AlgoStackStrategy
         mock_strategy_result.signals_history = []
         mock_strategy_result.trades_history = []
@@ -409,7 +409,7 @@ class TestIntegrationScenarios:
         # Mock strategy results with analyzers
         mock_strategy_result = Mock()
         mock_strategy_result.analyzers = Mock()
-        
+
         # Add required attributes for AlgoStackStrategy
         mock_strategy_result.signals_history = []
         mock_strategy_result.trades_history = []

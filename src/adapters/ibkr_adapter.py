@@ -16,7 +16,6 @@ import aiohttp
 import pandas as pd
 from aiohttp import ClientSession, ClientTimeout, TCPConnector
 from aiohttp.client_exceptions import ClientError
-
 from utils.logging import setup_logger
 
 logger = setup_logger(__name__)

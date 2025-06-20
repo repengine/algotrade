@@ -285,7 +285,7 @@ class TestComponentInteractions:
         """
         from backtests.run_backtests import BacktestEngine
         from strategies.base import RiskContext
-        
+
         # Generate test data
         dates = pd.date_range('2023-01-01', '2023-03-31', freq='D')  # Shorter period for faster test
         n = len(dates)
@@ -317,12 +317,12 @@ class TestComponentInteractions:
 
         # Initialize backtest engine
         backtest = BacktestEngine(initial_capital=100000)
-        
+
         # Use mean reversion strategy for testing
         strategy = integrated_system['strategies']['mean_reversion']
-        
+
         # Create risk context
-        risk_context = RiskContext(
+        RiskContext(
             account_equity=100000,
             open_positions=0,
             daily_pnl=0,
@@ -330,7 +330,7 @@ class TestComponentInteractions:
             volatility_target=0.15,
             max_position_size=0.2
         )
-        
+
         # Run backtest - note that run_backtest fetches its own data
         # So we'll just use the symbols we prepared data for
         results = backtest.run_backtest(
@@ -344,7 +344,7 @@ class TestComponentInteractions:
 
         # Verify results structure - check what backtrader actually returns
         assert isinstance(results, dict)
-        
+
         # The run_backtest method returns a dict with strategy results
         # Check for common backtest result keys
         if 'metrics' in results:
@@ -353,10 +353,10 @@ class TestComponentInteractions:
             for metric_name in ['sharpe_ratio', 'total_return', 'max_drawdown', 'num_trades']:
                 if metric_name in metrics and metrics[metric_name] is not None:
                     assert isinstance(metrics[metric_name], (int, float, type(None)))
-        
+
         # Basic verification that backtest ran
         assert len(results) > 0  # Should have some results
-        
+
         # Check if we have strategy-specific results
         strategy_name = strategy.name
         if strategy_name in results:

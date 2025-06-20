@@ -307,7 +307,7 @@ class TestTradingFlowIntegration:
 
             # Position should be closed
             assert 'AAPL' not in portfolio.positions
-            
+
             # Note: realized_pnl requires trades to be tracked via add_position/close_position
             # process_fill only updates positions, not the trades list used for P&L calculation
 

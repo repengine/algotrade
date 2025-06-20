@@ -18,12 +18,12 @@ import numpy as np
 import pandas as pd
 import pytest
 from core.portfolio import PortfolioEngine, Position
+from freezegun import freeze_time
 from strategies.base import Signal
 from utils.constants import (
     DEFAULT_INITIAL_CAPITAL,
     TRADING_DAYS_PER_YEAR,
 )
-from freezegun import freeze_time
 
 
 class TestPortfolioConstruction:

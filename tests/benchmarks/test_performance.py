@@ -20,15 +20,14 @@ import numpy as np
 import pandas as pd
 import psutil
 import pytest
+from backtests.run_backtests import BacktestEngine
 from core.engine.order_manager import (
     Order,
     OrderManager,
     OrderSide,
     OrderType,
 )
-from core.engine.trading_engine import TradingEngine
 from core.portfolio import PortfolioEngine
-from backtests.run_backtests import BacktestEngine
 from core.risk import EnhancedRiskManager
 from strategies.mean_reversion_equity import MeanReversionEquity
 from strategies.trend_following_multi import TrendFollowingMulti
@@ -84,7 +83,7 @@ class TestPerformanceBenchmarks:
         validation_start = time.time()
         valid_count = 0
 
-        for symbol, data in all_data.items():
+        for _, data in all_data.items():
             # Simple validation: check if data has required columns and no NaN values
             required_cols = ['open', 'high', 'low', 'close', 'volume']
             if all(col in data.columns for col in required_cols) and not data.isnull().any().any():
@@ -219,7 +218,7 @@ class TestPerformanceBenchmarks:
         # Benchmark order validation (simple validation)
         validation_times = []
 
-        for order in orders[:1000]:  # Sample
+        for _ in orders[:1000]:  # Sample
             start = time.perf_counter()
             # Simple validation: check required fields
             elapsed = time.perf_counter() - start
@@ -279,7 +278,7 @@ class TestPerformanceBenchmarks:
         # Benchmark position additions
         add_times = []
 
-        for symbol, quantity, price in positions:
+        for _, _, _ in positions:
             start = time.perf_counter()
             # Positions would be added through trading in real usage
             elapsed = time.perf_counter() - start
@@ -467,7 +466,7 @@ class TestPerformanceBenchmarks:
                     if symbol in backtest_data:
                         return backtest_data[symbol]
                     return pd.DataFrame()
-                
+
                 mock_get_historical.side_effect = return_backtest_data
 
                 start_time = time.time()
@@ -564,7 +563,7 @@ class TestPerformanceBenchmarks:
                 }, index=dates)
 
             # Process chunk (simulate strategy calculations)
-            for symbol, data in chunk_data.items():
+            for _, data in chunk_data.items():
                 # Simple calculations to simulate processing
                 data['close'].rolling(20).mean()
                 self._calculate_rsi(data['close'], 14)
