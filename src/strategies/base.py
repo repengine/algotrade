@@ -233,7 +233,8 @@ class BaseStrategy(ABC):
             level: Log level (INFO, DEBUG, WARNING, ERROR)
         """
         # Strategies can override this to use custom logging
-        pass
+        # Default implementation does nothing to avoid spam
+        return
 
     def get_parameters(self) -> dict[str, Any]:
         """
