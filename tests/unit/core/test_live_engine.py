@@ -14,8 +14,15 @@ from strategies.base import BaseStrategy, Signal
 class MockStrategy(BaseStrategy):
     """Mock strategy for testing."""
 
-    def __init__(self, symbol="AAPL"):
-        self.symbol = symbol
+    def __init__(self, config=None):
+        # Handle both old style (symbol) and new style (config dict)
+        if isinstance(config, dict):
+            self.symbol = config.get('symbol', 'AAPL')
+            self.config = config
+        else:
+            # Backward compatibility
+            self.symbol = config if config else 'AAPL'
+            self.config = {'symbol': self.symbol}
         self.signals_to_generate = []
 
     def init(self):
@@ -276,37 +283,38 @@ class TestLiveTradingEngine:
         # Setup
         executor = engine.order_manager.executors["paper"]
         await executor.connect()
-        executor.update_price("AAPL", 150.0)
+        try:
+            executor.update_price("AAPL", 150.0)
 
-        # Create a position
-        from core.executor import Order, OrderSide, OrderType
+            # Create a position
+            from core.executor import Order, OrderSide, OrderType
 
-        buy_order = Order(
-            order_id="BUY-001",
-            symbol="AAPL",
-            side=OrderSide.BUY,
-            quantity=100,
-            order_type=OrderType.MARKET,
-        )
-        await executor.submit_order(buy_order)
-        await asyncio.sleep(0.1)  # Wait for fill
+            buy_order = Order(
+                order_id="BUY-001",
+                symbol="AAPL",
+                side=OrderSide.BUY,
+                quantity=100,
+                order_type=OrderType.MARKET,
+            )
+            await executor.submit_order(buy_order)
+            await asyncio.sleep(0.1)  # Wait for fill
 
-        # Trigger emergency liquidation
-        violation = {"reason": "test", "severity": "critical"}
-        await engine._emergency_liquidation(violation)
+            # Trigger emergency liquidation
+            violation = {"reason": "test", "severity": "critical"}
+            await engine._emergency_liquidation(violation)
 
-        # Check that liquidation order was created
-        orders = engine.order_manager.get_active_orders()
-        [
-            o
-            for o in orders
-            if o.metadata.get("strategy_id") == "EMERGENCY_LIQUIDATION"
-        ]
+            # Check that liquidation order was created
+            orders = engine.order_manager.get_active_orders()
+            [
+                o
+                for o in orders
+                if o.metadata.get("strategy_id") == "EMERGENCY_LIQUIDATION"
+            ]
 
-        # Should have attempted to liquidate
-        # Note: Order may have already filled
-
-        await executor.disconnect()
+            # Should have attempted to liquidate
+            # Note: Order may have already filled
+        finally:
+            await executor.disconnect()
 
     @pytest.mark.asyncio
     async def test_cancel_all_orders(self, engine_config):
@@ -316,27 +324,28 @@ class TestLiveTradingEngine:
         # Setup
         executor = engine.order_manager.executors["paper"]
         await executor.connect()
-        executor.update_price("AAPL", 150.0)
+        try:
+            executor.update_price("AAPL", 150.0)
 
-        # Create multiple limit orders
-        for i in range(3):
-            order = await engine.order_manager.create_order(
-                symbol="AAPL",
-                side="BUY",
-                quantity=100,
-                order_type="LIMIT",
-                limit_price=140.0 - i,  # Different prices
-            )
-            await engine.order_manager.submit_order(order)
+            # Create multiple limit orders
+            for i in range(3):
+                order = await engine.order_manager.create_order(
+                    symbol="AAPL",
+                    side="BUY",
+                    quantity=100,
+                    order_type="LIMIT",
+                    limit_price=140.0 - i,  # Different prices
+                )
+                await engine.order_manager.submit_order(order)
 
-        # Cancel all
-        await engine._cancel_all_orders()
+            # Cancel all
+            await engine._cancel_all_orders()
 
-        # Check no active orders remain
-        active_orders = engine.order_manager.get_active_orders()
-        assert len(active_orders) == 0
-
-        await executor.disconnect()
+            # Check no active orders remain
+            active_orders = engine.order_manager.get_active_orders()
+            assert len(active_orders) == 0
+        finally:
+            await executor.disconnect()
 
     def test_order_event_handling(self, engine_config):
         """Test order event handler."""

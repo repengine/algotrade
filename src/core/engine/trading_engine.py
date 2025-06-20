@@ -324,7 +324,7 @@ class TradingEngine:
                         self.portfolio.update_prices(prices)
 
                 # Update strategies with market data
-                for strategy_id, strategy in self.strategies.items():
+                for _strategy_id, strategy in self.strategies.items():
                     if hasattr(strategy, "on_market_data"):
                         await strategy.on_market_data(market_data)
 
