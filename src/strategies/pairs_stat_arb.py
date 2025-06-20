@@ -16,7 +16,6 @@ except ImportError:
     talib = create_talib_compatible_module()
 from sklearn.linear_model import LinearRegression
 from statsmodels.tsa.stattools import coint
-
 from strategies.base import BaseStrategy, RiskContext, Signal
 from utils.validators.strategy_validators import validate_pairs_trading_config
 
@@ -199,7 +198,6 @@ class PairsStatArb(BaseStrategy):
             or (current_time - self.last_calibration.get("date", datetime.min)).days
             >= self.config["recalibrate_days"]
         ):
-
             symbols = list(price_data.keys())
             cointegrated_pairs = self.find_cointegrated_pairs(symbols, price_data)
 

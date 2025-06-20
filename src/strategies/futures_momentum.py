@@ -171,7 +171,6 @@ class FuturesMomentum(BaseStrategy):
                 and not pd.isna(current_rsi)
                 and not pd.isna(current_atr)
             ):
-
                 # Calculate position details
                 stop_distance = current_atr * self.config["stop_loss_atr"]
                 stop_price = current_price - stop_distance

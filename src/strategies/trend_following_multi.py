@@ -37,7 +37,7 @@ class TrendFollowingMulti(BaseStrategy):
             "trail_period": 10,
             "atr_period": 14,
             "adx_period": 14,
-            "adx_threshold": 25,  # Minimum ADX for trend
+            "adx_threshold": 25.0,  # Minimum ADX for trend
             "max_positions": 4,
             "use_volume_filter": True,
             "volume_threshold": 1.2,  # 20% above average
@@ -206,7 +206,6 @@ class TrendFollowingMulti(BaseStrategy):
                 and latest["plus_di"] > latest["minus_di"]
                 and volume_confirm
             ):
-
                 # Calculate signal strength based on breakout magnitude and trend strength
                 breakout_strength = (
                     min(1.0, (latest["close"] - latest["channel_high"]) / latest["atr"])
@@ -258,7 +257,6 @@ class TrendFollowingMulti(BaseStrategy):
                 and latest["minus_di"] > latest["plus_di"]
                 and volume_confirm
             ):
-
                 # Calculate signal strength
                 breakout_strength = (
                     min(1.0, (latest["channel_low"] - latest["close"]) / latest["atr"])
@@ -266,9 +264,9 @@ class TrendFollowingMulti(BaseStrategy):
                     else 0.5
                 )
                 trend_strength = min(1.0, latest["adx"] / 40)
-                strength = (
-                    -(breakout_strength + trend_strength) / 2
-                )  # Negative for short
+                strength = -(
+                    breakout_strength + trend_strength
+                ) / 2  # Negative for short
 
                 signal = Signal(
                     timestamp=current_time,

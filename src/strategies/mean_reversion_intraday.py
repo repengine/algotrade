@@ -5,6 +5,10 @@ from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
+from strategies.base import BaseStrategy, RiskContext, Signal
+from utils.validators.strategy_validators import (
+    validate_mean_reversion_config,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -15,11 +19,6 @@ except ImportError:
     from pandas_indicators import create_talib_compatible_module
 
     talib = create_talib_compatible_module()
-
-from strategies.base import BaseStrategy, RiskContext, Signal
-from utils.validators.strategy_validators import (
-    validate_mean_reversion_config,
-)
 
 
 class MeanReversionIntraday(BaseStrategy):

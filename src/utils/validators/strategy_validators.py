@@ -162,6 +162,7 @@ def validate_trend_following_config(config: dict[str, Any]) -> dict[str, Any]:
     }
 
     optional_params = {
+        "lookback_period": (int, 100),
         "volume_filter": (bool, True),
         "volume_threshold": (float, 1.2),
         "max_positions": (int, 10),

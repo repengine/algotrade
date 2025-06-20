@@ -272,11 +272,13 @@ class MeanReversionEquity(BaseStrategy):
         # Calculate holding period if we have entry and exit times
         avg_holding_period = 0
         if "entry_time" in trades.columns and "exit_time" in trades.columns:
-            trades["holding_days"] = (trades["exit_time"] - trades["entry_time"]).dt.days
+            trades["holding_days"] = (
+                trades["exit_time"] - trades["entry_time"]
+            ).dt.days
             avg_holding_period = trades["holding_days"].mean()
         elif "holding_days" in trades.columns:
             avg_holding_period = trades["holding_days"].mean()
-        
+
         return {
             "win_rate": win_rate,
             "avg_win": avg_win,

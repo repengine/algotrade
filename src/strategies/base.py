@@ -211,3 +211,76 @@ class BaseStrategy(ABC):
         # Default implementation returns no signals
         # Subclasses should override this method
         return []
+
+    def is_ready(self, bar_count: int) -> bool:
+        """
+        Check if strategy has enough data to operate.
+
+        Args:
+            bar_count: Number of available data bars
+
+        Returns:
+            True if strategy has sufficient data
+        """
+        return bar_count >= self.lookback_period
+
+    def log(self, message: str, level: str = "INFO") -> None:
+        """
+        Log a message (utility method for strategies).
+
+        Args:
+            message: Message to log
+            level: Log level (INFO, DEBUG, WARNING, ERROR)
+        """
+        # Strategies can override this to use custom logging
+        pass
+
+    def get_parameters(self) -> dict[str, Any]:
+        """
+        Get strategy parameters.
+
+        Returns:
+            Dictionary of current parameters
+        """
+        return self.config.get("parameters", {})
+
+    def update_parameters(self, **params: Any) -> None:
+        """
+        Update strategy parameters.
+
+        Args:
+            **params: New parameter values
+        """
+        if "parameters" not in self.config:
+            self.config["parameters"] = {}
+        self.config["parameters"].update(params)
+
+    def validate_signal(self, signal: Signal) -> bool:
+        """
+        Validate a trading signal.
+
+        Args:
+            signal: Signal to validate
+
+        Returns:
+            True if signal is valid
+        """
+        if not signal.symbol:
+            return False
+        if signal.direction not in ["LONG", "SHORT", "FLAT"]:
+            return False
+        if not 0 <= abs(signal.strength) <= 1:
+            return False
+        return True
+
+    def format_signal(self, signal: Signal) -> str:
+        """
+        Format signal for display.
+
+        Args:
+            signal: Signal to format
+
+        Returns:
+            Formatted string representation
+        """
+        return f"{signal.symbol} {signal.direction} @ {signal.strength:.2f}"

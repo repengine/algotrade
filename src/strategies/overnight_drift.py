@@ -113,7 +113,9 @@ class OvernightDrift(BaseStrategy):
 
         # Recent momentum
         recent_momentum = (
-            data["close"].pct_change(self.config["momentum_period"]).iloc[-1]
+            data["close"]
+            .pct_change(self.config["momentum_period"])
+            .iloc[-1]
         )
 
         # Calculate edge score

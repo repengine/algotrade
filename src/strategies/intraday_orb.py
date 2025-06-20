@@ -185,7 +185,6 @@ class IntradayORB(BaseStrategy):
                 and volume_confirmed
                 and current_time_only <= self.config["trade_end_time"]
             ):
-
                 # Calculate signal strength based on breakout magnitude
                 breakout_strength = (
                     min(
@@ -237,7 +236,6 @@ class IntradayORB(BaseStrategy):
                 and volume_confirmed
                 and current_time_only <= self.config["trade_end_time"]
             ):
-
                 # Calculate signal strength
                 breakout_strength = (
                     min(

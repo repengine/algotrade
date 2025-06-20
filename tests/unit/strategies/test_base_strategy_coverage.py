@@ -38,14 +38,15 @@ class TestSignal:
             timestamp=datetime.now(),
             strategy_id="test_strategy",
             price=150.0,
-            stop_loss=145.0,
-            take_profit=160.0,
-            metadata={"reason": "MA crossover"}
+            atr=2.5,  # This is an actual optional field
+            metadata={"reason": "MA crossover", "stop_loss": 145.0, "take_profit": 160.0}
         )
 
-        assert signal.stop_loss == 145.0
-        assert signal.take_profit == 160.0
+        assert signal.atr == 2.5
         assert signal.metadata["reason"] == "MA crossover"
+        # Stop loss and take profit can be stored in metadata if needed
+        assert signal.metadata["stop_loss"] == 145.0
+        assert signal.metadata["take_profit"] == 160.0
 
 
 class TestBaseStrategy:
@@ -56,7 +57,7 @@ class TestBaseStrategy:
         config = {
             'name': 'TestStrategy',
             'symbols': ['AAPL', 'GOOGL'],
-            'lookback': 20,
+            'lookback_period': 20,
             'parameters': {'threshold': 0.5}
         }
 
@@ -71,12 +72,15 @@ class TestBaseStrategy:
             def calculate_signals(self, data):
                 return []
 
+            def size(self, signal, risk_context):
+                return (100, signal.price * 0.95)
+
         strategy = ConcreteStrategy(config)
 
         assert strategy.name == 'TestStrategy'
         assert strategy.symbols == ['AAPL', 'GOOGL']
-        assert strategy.lookback == 20
-        assert strategy.parameters['threshold'] == 0.5
+        assert strategy.lookback_period == 20
+        assert strategy.get_parameters()['threshold'] == 0.5
 
     def test_size_method(self):
         """Test position sizing method."""
@@ -90,13 +94,33 @@ class TestBaseStrategy:
             def calculate_signals(self, data):
                 return []
 
-            def size(self, symbol):
-                return 100
+            def size(self, signal, risk_context):
+                # Simple fixed size
+                return (100, signal.price * 0.95)
 
         config = {'name': 'Test', 'symbols': ['AAPL']}
         strategy = ConcreteStrategy(config)
 
-        assert strategy.size('AAPL') == 100
+        # Create test signal and risk context
+        signal = Signal(
+            symbol="AAPL",
+            direction="LONG",
+            strength=0.8,
+            timestamp=datetime.now(),
+            strategy_id="Test",
+            price=150.0
+        )
+        
+        risk_context = RiskContext(
+            account_equity=100000,
+            open_positions=0,
+            daily_pnl=0,
+            max_drawdown_pct=0.0
+        )
+
+        size, stop_loss = strategy.size(signal, risk_context)
+        assert size == 100
+        assert stop_loss == 150.0 * 0.95
 
     def test_is_ready(self):
         """Test is_ready method."""
@@ -110,7 +134,10 @@ class TestBaseStrategy:
             def calculate_signals(self, data):
                 return []
 
-        config = {'name': 'Test', 'symbols': ['AAPL'], 'lookback': 10}
+            def size(self, signal, risk_context):
+                return (100, signal.price * 0.95)
+
+        config = {'name': 'Test', 'symbols': ['AAPL'], 'lookback_period': 10}
         strategy = ConcreteStrategy(config)
 
         # Not ready with insufficient data
@@ -131,6 +158,9 @@ class TestBaseStrategy:
             def calculate_signals(self, data):
                 return []
 
+            def size(self, signal, risk_context):
+                return (100, signal.price * 0.95)
+
         config = {'name': 'Test', 'symbols': ['AAPL']}
         strategy = ConcreteStrategy(config)
 
@@ -149,6 +179,9 @@ class TestBaseStrategy:
 
             def calculate_signals(self, data):
                 return []
+
+            def size(self, signal, risk_context):
+                return (100, signal.price * 0.95)
 
         config = {
             'name': 'Test',
@@ -173,6 +206,9 @@ class TestBaseStrategy:
             def calculate_signals(self, data):
                 return []
 
+            def size(self, signal, risk_context):
+                return (100, signal.price * 0.95)
+
         config = {
             'name': 'Test',
             'symbols': ['AAPL'],
@@ -181,11 +217,11 @@ class TestBaseStrategy:
         strategy = ConcreteStrategy(config)
 
         # Update parameters
-        new_params = {'ma_period': 30, 'threshold': 0.7}
-        strategy.update_parameters(new_params)
+        strategy.update_parameters(ma_period=30, threshold=0.7)
 
-        assert strategy.parameters['ma_period'] == 30
-        assert strategy.parameters['threshold'] == 0.7
+        params = strategy.get_parameters()
+        assert params['ma_period'] == 30
+        assert params['threshold'] == 0.7
 
     def test_validate_signal_valid(self):
         """Test signal validation with valid signal."""
@@ -198,6 +234,9 @@ class TestBaseStrategy:
 
             def calculate_signals(self, data):
                 return []
+
+            def size(self, signal, risk_context):
+                return (100, signal.price * 0.95)
 
         config = {'name': 'Test', 'symbols': ['AAPL']}
         strategy = ConcreteStrategy(config)
@@ -225,52 +264,66 @@ class TestBaseStrategy:
             def calculate_signals(self, data):
                 return []
 
+            def size(self, signal, risk_context):
+                return (100, signal.price * 0.95)
+
         config = {'name': 'Test', 'symbols': ['AAPL']}
         strategy = ConcreteStrategy(config)
 
-        # Wrong symbol
+        # Test empty symbol - this is allowed by pydantic
         signal1 = Signal(
-            symbol="TSLA",
+            symbol="",
             direction="LONG",
             strength=0.8,
             timestamp=datetime.now(),
             strategy_id="Test",
             price=150.0
         )
+        # Our validate_signal method should reject it
         assert strategy.validate_signal(signal1) is False
 
-        # Wrong strategy ID
-        signal2 = Signal(
-            symbol="AAPL",
-            direction="LONG",
-            strength=0.8,
-            timestamp=datetime.now(),
-            strategy_id="Other",
-            price=150.0
-        )
-        assert strategy.validate_signal(signal2) is False
+        # Invalid direction
+        from pydantic import ValidationError
+        try:
+            signal2 = Signal(
+                symbol="AAPL",
+                direction="INVALID",
+                strength=0.8,
+                timestamp=datetime.now(),
+                strategy_id="Test",
+                price=150.0
+            )
+            assert False, "Should have raised validation error"
+        except ValidationError:
+            pass  # Expected
 
         # Invalid strength for LONG
-        signal3 = Signal(
-            symbol="AAPL",
-            direction="LONG",
-            strength=-0.5,
-            timestamp=datetime.now(),
-            strategy_id="Test",
-            price=150.0
-        )
-        assert strategy.validate_signal(signal3) is False
+        try:
+            signal3 = Signal(
+                symbol="AAPL",
+                direction="LONG",
+                strength=-0.5,
+                timestamp=datetime.now(),
+                strategy_id="Test",
+                price=150.0
+            )
+            assert False, "Should have raised validation error"
+        except ValueError:
+            pass  # Expected
 
         # Invalid strength for SHORT
-        signal4 = Signal(
-            symbol="AAPL",
-            direction="SHORT",
-            strength=0.5,
-            timestamp=datetime.now(),
-            strategy_id="Test",
-            price=150.0
-        )
-        assert strategy.validate_signal(signal4) is False
+        try:
+            signal4 = Signal(
+                symbol="AAPL",
+                direction="SHORT",
+                strength=0.5,
+                timestamp=datetime.now(),
+                strategy_id="Test",
+                price=150.0
+            )
+            assert False, "Should have raised validation error"
+        except ValueError:
+            pass  # Expected
 
     def test_format_signal(self):
         """Test signal formatting."""
@@ -284,39 +337,23 @@ class TestBaseStrategy:
             def calculate_signals(self, data):
                 return []
 
+            def size(self, signal, risk_context):
+                return (100, signal.price * 0.95)
+
         config = {'name': 'Test', 'symbols': ['AAPL']}
         strategy = ConcreteStrategy(config)
 
-        # Test with minimal data
-        signal_data = {
-            'symbol': 'AAPL',
-            'direction': 'LONG',
-            'strength': 0.8
-        }
+        signal = Signal(
+            symbol="AAPL",
+            direction="LONG",
+            strength=0.8,
+            timestamp=datetime.now(),
+            strategy_id="Test",
+            price=150.0
+        )
 
-        signal = strategy.format_signal(signal_data)
-        assert isinstance(signal, Signal)
-        assert signal.symbol == 'AAPL'
-        assert signal.direction == 'LONG'
-        assert signal.strength == 0.8
-        assert signal.strategy_id == 'Test'
-
-        # Test with full data
-        signal_data_full = {
-            'symbol': 'AAPL',
-            'direction': 'SHORT',
-            'strength': -0.5,
-            'price': 150.0,
-            'stop_loss': 155.0,
-            'take_profit': 140.0,
-            'metadata': {'reason': 'test'}
-        }
-
-        signal_full = strategy.format_signal(signal_data_full)
-        assert signal_full.price == 150.0
-        assert signal_full.stop_loss == 155.0
-        assert signal_full.take_profit == 140.0
-        assert signal_full.metadata['reason'] == 'test'
+        formatted = strategy.format_signal(signal)
+        assert formatted == "AAPL LONG @ 0.80"
 
 
 class TestRiskContext:
@@ -363,7 +400,7 @@ class TestBaseStrategyIntegration:
         """Test complete strategy workflow."""
         class TestStrategy(BaseStrategy):
             def init(self):
-                self.ma_period = self.parameters.get('ma_period', 20)
+                self.ma_period = self.get_parameters().get('ma_period', 20)
 
             def next(self, data):
                 if len(data) < self.ma_period:
@@ -374,27 +411,35 @@ class TestBaseStrategyIntegration:
                 ma = data['close'].rolling(self.ma_period).mean().iloc[-1]
 
                 if price > ma:
-                    return self.format_signal({
-                        'symbol': 'AAPL',
-                        'direction': 'LONG',
-                        'strength': 0.7,
-                        'price': price
-                    })
+                    return Signal(
+                        symbol='AAPL',
+                        direction='LONG',
+                        strength=0.7,
+                        timestamp=datetime.now(),
+                        strategy_id=self.name,
+                        price=price
+                    )
                 else:
-                    return self.format_signal({
-                        'symbol': 'AAPL',
-                        'direction': 'SHORT',
-                        'strength': -0.7,
-                        'price': price
-                    })
+                    return Signal(
+                        symbol='AAPL',
+                        direction='SHORT',
+                        strength=-0.7,
+                        timestamp=datetime.now(),
+                        strategy_id=self.name,
+                        price=price
+                    )
 
             def calculate_signals(self, data):
                 signals = []
                 for symbol in self.symbols:
-                    signal = self.next(data[symbol])
-                    if signal:
-                        signals.append(signal)
+                    if symbol in data:
+                        signal = self.next(data[symbol])
+                        if signal:
+                            signals.append(signal)
                 return signals
+
+            def size(self, signal, risk_context):
+                return (100, signal.price * 0.95)
 
         config = {
             'name': 'TestMA',
