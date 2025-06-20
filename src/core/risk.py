@@ -1812,7 +1812,9 @@ class EnhancedRiskManager:
         updated_positions[new_trade["symbol"]] = new_trade
 
         # Calculate portfolio risk
-        market_volatilities = dict.fromkeys(updated_positions, 0.02)  # Default volatilities
+        market_volatilities = dict.fromkeys(
+            updated_positions, 0.02
+        )  # Default volatilities
         portfolio_risk = self.calculate_portfolio_risk(
             updated_positions, market_volatilities
         )

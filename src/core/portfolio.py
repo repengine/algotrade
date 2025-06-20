@@ -687,25 +687,27 @@ class PortfolioEngine:
 
         if symbol and quantity != 0 and price > 0:
             # Record trade
-            self.trades.append({
-                "timestamp": timestamp,
-                "symbol": symbol,
-                "side": side,
-                "quantity": quantity,
-                "price": price,
-                "commission": commission,
-                "order_id": fill_data.get("order_id", "")
-            })
-            
+            self.trades.append(
+                {
+                    "timestamp": timestamp,
+                    "symbol": symbol,
+                    "side": side,
+                    "quantity": quantity,
+                    "price": price,
+                    "commission": commission,
+                    "order_id": fill_data.get("order_id", ""),
+                }
+            )
+
             # Update commission tracking
             self.total_commission += commission
-            
+
             # For BUY orders, add to position
             if side == "BUY":
                 # Update cash
                 total_cost = (quantity * price) + commission
                 self._cash -= total_cost
-                
+
                 if symbol in self.positions:
                     # Add to existing position
                     position = self.positions[symbol]
@@ -734,15 +736,15 @@ class PortfolioEngine:
                 # Update cash
                 total_proceeds = (quantity * price) - commission
                 self._cash += total_proceeds
-                
+
                 if symbol in self.positions:
                     position = self.positions[symbol]
-                    
+
                     # Calculate realized P&L
                     realized_pnl = quantity * (price - position.entry_price)
                     position.realized_pnl += realized_pnl
                     self._realized_pnl += realized_pnl - commission
-                    
+
                     position.quantity -= quantity
                     position.current_price = price
 
@@ -762,7 +764,7 @@ class PortfolioEngine:
                         entry_time=timestamp,
                         current_price=price,
                     )
-            
+
             # Update equity
             self._update_equity()
 
